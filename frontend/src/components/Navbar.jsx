@@ -46,6 +46,36 @@ function Navbar() {
               Dashboard
             </NavLink>
           ) : null}
+          {isAuthenticated ? (
+            <NavLink to="/profile" className="nav-link">
+              Profil
+            </NavLink>
+          ) : null}
+          {isAuthenticated ? (
+            <NavLink to="/analytics" className="nav-link">
+              Stats
+            </NavLink>
+          ) : null}
+          {isAuthenticated ? (
+            <NavLink to="/scheduler" className="nav-link">
+              Planner
+            </NavLink>
+          ) : null}
+          {isAuthenticated ? (
+            <NavLink to="/team" className="nav-link">
+              Team
+            </NavLink>
+          ) : null}
+          {isAuthenticated ? (
+            <NavLink to="/referral" className="nav-link">
+              Referral
+            </NavLink>
+          ) : null}
+          {isAuthenticated && user?.is_admin ? (
+            <NavLink to="/admin" className="nav-link">
+              Admin
+            </NavLink>
+          ) : null}
         </nav>
 
         <div className="inline-actions" style={{ alignItems: "center" }}>
@@ -99,6 +129,36 @@ function Navbar() {
               {isAuthenticated ? (
                 <NavLink to="/dashboard" onClick={() => setMenuOpen(false)}>
                   Dashboard
+                </NavLink>
+              ) : null}
+              {isAuthenticated ? (
+                <NavLink to="/profile" onClick={() => setMenuOpen(false)}>
+                  Profil
+                </NavLink>
+              ) : null}
+              {isAuthenticated ? (
+                <NavLink to="/analytics" onClick={() => setMenuOpen(false)}>
+                  Stats
+                </NavLink>
+              ) : null}
+              {isAuthenticated ? (
+                <NavLink to="/scheduler" onClick={() => setMenuOpen(false)}>
+                  Planner
+                </NavLink>
+              ) : null}
+              {isAuthenticated ? (
+                <NavLink to="/team" onClick={() => setMenuOpen(false)}>
+                  Team
+                </NavLink>
+              ) : null}
+              {isAuthenticated ? (
+                <NavLink to="/referral" onClick={() => setMenuOpen(false)}>
+                  Referral
+                </NavLink>
+              ) : null}
+              {isAuthenticated && user?.is_admin ? (
+                <NavLink to="/admin" onClick={() => setMenuOpen(false)}>
+                  Admin
                 </NavLink>
               ) : null}
             </div>

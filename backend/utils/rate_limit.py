@@ -16,4 +16,4 @@ def _key_func(request) -> str:
     return str(get_remote_address(request))
 
 
-limiter = Limiter(key_func=_key_func)
+limiter = Limiter(key_func=_key_func, default_limits=["100/minute"])

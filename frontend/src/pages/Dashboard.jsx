@@ -8,6 +8,15 @@ import VideoInput from "../components/VideoInput";
 import Card from "../components/ui/Card";
 import useAuth from "../hooks/useAuth";
 import useVideo from "../hooks/useVideo";
+import { askNotificationPermission } from "../pwa/registerSW";
+import { getVapidPublicKey, subscribePush } from "../services/notificationService";
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = atob(base64);
+  return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)));
+}
 
 function Dashboard() {
   const { user } = useAuth();
@@ -32,6 +41,32 @@ function Dashboard() {
     }
   };
 
+  const handleEnablePush = async () => {
+    if (!("serviceWorker" in navigator)) {
+      toast.error("Service Worker indisponible sur ce navigateur");
+      return;
+    }
+
+    const permission = await askNotificationPermission();
+    if (permission !== "granted") {
+      toast.error("Permission notifications refusée");
+      return;
+    }
+
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      const publicKey = await getVapidPublicKey();
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
+      });
+      await subscribePush(subscription.toJSON());
+      toast.success("Notifications push activées");
+    } catch (error) {
+      toast.error(error?.response?.data?.detail || "Impossible d'activer les notifications");
+    }
+  };
+
   return (
     <section className="page">
       <Card>
@@ -52,6 +87,12 @@ function Dashboard() {
               <p style={{ fontSize: 32, fontWeight: 700 }}>{item.value}</p>
             </motion.div>
           ))}
+        </div>
+
+        <div style={{ marginTop: 16 }}>
+          <button type="button" className="ui-btn ui-btn-secondary" onClick={handleEnablePush}>
+            Activer les notifications push
+          </button>
         </div>
       </Card>
 

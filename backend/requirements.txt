@@ -24,6 +24,11 @@ boto3==1.40.18
 python-jose[cryptography]==3.5.0
 passlib[bcrypt]==1.7.4
 bcrypt==4.0.1
+cryptography==45.0.6
+pyotp==2.9.0
+qrcode[pil]==8.2
+authlib==1.6.0
+bleach==6.2.0
 python-multipart==0.0.20
 email-validator==2.3.0
 httpx==0.28.1
@@ -31,3 +36,5 @@ slowapi==0.1.9
 tenacity==9.1.2
 python-json-logger==3.3.0
 brotli==1.1.0
+pywebpush==2.0.3
+resend==2.13.0

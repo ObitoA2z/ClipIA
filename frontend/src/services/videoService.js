@@ -29,3 +29,8 @@ export async function deleteVideo(videoId) {
   const { data } = await api.delete(`/video/${videoId}`);
   return data;
 }
+
+export async function recutClip(clipId, { start, end }) {
+  const { data } = await api.post(`/clips/${clipId}/recut`, { start, end });
+  return data;
+}

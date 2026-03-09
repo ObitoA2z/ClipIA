@@ -8,8 +8,10 @@ import shutil
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 
 from database.connection import delete_record, get_record, insert_record, list_records, update_record
+from middleware.security import validate_youtube_url_strict
 from models.video import ProcessVideoRequest, VideoStatus
 from services.audio_extractor import extract_audio
+from services.audit import detect_abuse_signals, log_audit
 from services.cutter import cut_clips
 from services.detector import detect_highlights
 from services.downloader import download_video, get_video_metadata
@@ -19,7 +21,7 @@ from services.uploader import upload_clips
 from utils.auth import require_current_user
 from utils.helpers import new_id, utc_now_iso
 from utils.rate_limit import limiter
-from utils.validators import extract_youtube_id, is_valid_youtube_url
+from utils.validators import extract_youtube_id
 
 router = APIRouter(prefix="/video", tags=["video"])
 processing_tasks: dict[str, asyncio.Task] = {}
@@ -115,7 +117,7 @@ async def process_video(
     current_user: dict = Depends(require_current_user),
 ) -> VideoStatus:
     """Valide l'URL, recupere la metadata, cree la video et lance la pipeline."""
-    if not is_valid_youtube_url(payload.youtube_url):
+    if not validate_youtube_url_strict(payload.youtube_url):
         raise HTTPException(status_code=400, detail="URL YouTube invalide")
 
     metadata_error = None
@@ -150,6 +152,24 @@ async def process_video(
         "updated_at": now,
     }
     insert_record("videos", video_id, record)
+    log_audit(
+        action="video.process.started",
+        success=True,
+        user_id=current_user["id"],
+        resource_type="video",
+        resource_id=video_id,
+        request=request,
+        metadata={"youtube_id": youtube_id},
+    )
+    abuse = detect_abuse_signals(user_id=current_user["id"])
+    if abuse.get("too_many_videos"):
+        log_audit(
+            action="security.anomaly.video_burst",
+            success=False,
+            user_id=current_user["id"],
+            request=request,
+            metadata=abuse,
+        )
 
     processing_tasks[video_id] = asyncio.create_task(_process_video(video_id, payload.youtube_url, current_user["id"]))
     return VideoStatus(**record)

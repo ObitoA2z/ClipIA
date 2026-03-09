@@ -12,7 +12,6 @@ from datetime import datetime, timezone
 from dotenv import load_dotenv
 import redis as redis_client
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from slowapi import _rate_limit_exceeded_handler
@@ -20,9 +19,17 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from supabase import create_client
 
+from middleware.security import apply_security_middleware
+from routes.admin import router as admin_router
 from routes.auth import router as auth_router
 from routes.clips import router as clips_router
+from routes.feedback import router as feedback_router
+from routes.gdpr import router as gdpr_router
+from routes.notifications import router as notifications_router
 from routes.payment import router as payment_router
+from routes.referral import router as referral_router
+from routes.scheduler import router as scheduler_router
+from routes.teams import router as teams_router
 from routes.video import router as video_router
 from utils.helpers import ensure_dir, ffmpeg_binary, resolve_temp_dir, run_subprocess
 from utils.rate_limit import limiter
@@ -106,22 +113,7 @@ def _cleanup_worker() -> None:
         time.sleep(interval_seconds)
 
 
-frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
-allowed_origins = [
-    frontend_url,
-    "http://127.0.0.1:5173",
-    "http://localhost:5173",
-    "http://127.0.0.1:5174",
-    "http://localhost:5174",
-]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=list(dict.fromkeys(allowed_origins)),
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+apply_security_middleware(app)
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(SlowAPIMiddleware)
 
@@ -132,6 +124,13 @@ app.include_router(auth_router)
 app.include_router(video_router)
 app.include_router(clips_router)
 app.include_router(payment_router)
+app.include_router(gdpr_router)
+app.include_router(notifications_router)
+app.include_router(admin_router)
+app.include_router(referral_router)
+app.include_router(scheduler_router)
+app.include_router(feedback_router)
+app.include_router(teams_router)
 
 
 @app.on_event("startup")

@@ -1,5 +1,6 @@
-﻿import { memo, useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Link } from "react-router-dom";
 
 import Badge from "./ui/Badge";
 import Button from "./ui/Button";
@@ -49,7 +50,7 @@ function ClipCard({ clip, index = 0 }) {
             borderRadius: 8,
             background: "rgba(8,8,18,0.75)",
             padding: "4px 8px",
-            fontSize: 12,
+            fontSize: 12
           }}
         >
           {durationLabel}
@@ -63,12 +64,14 @@ function ClipCard({ clip, index = 0 }) {
 
       <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
         <div className="inline-actions" style={{ justifyContent: "space-between", alignItems: "center" }}>
-          <h4 style={{
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-            maxWidth: "85%",
-          }}>
+          <h4
+            style={{
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              maxWidth: "85%"
+            }}
+          >
             {clip.title}
           </h4>
           {index === 0 ? <Badge variant="success">Top Pick</Badge> : null}
@@ -82,8 +85,11 @@ function ClipCard({ clip, index = 0 }) {
           <Button variant="secondary" onClick={() => setIsPreviewOpen((value) => !value)}>
             {isPreviewOpen ? "Masquer" : "Preview"}
           </Button>
+          <Link to={`/clip-editor/${clip.id}`}>
+            <Button variant="secondary">Editer</Button>
+          </Link>
           <Button variant="primary" onClick={handleDownload}>
-            Télécharger
+            Telecharger
           </Button>
         </div>
 

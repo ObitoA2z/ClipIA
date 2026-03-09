@@ -53,7 +53,7 @@ class TestAuthentication:
             "/auth/register",
             json={
                 "email": "test@clipai.com",
-                "password": "motdepasse123",
+                "password": "Motdepasse123!",
                 "full_name": "Test User",
             },
         )
@@ -63,20 +63,20 @@ class TestAuthentication:
     def test_register_duplicate_email(self):
         client.post(
             "/auth/register",
-            json={"email": "dup@test.com", "password": "pass123", "full_name": "Dup"},
+            json={"email": "dup@test.com", "password": "Pass123!", "full_name": "Dup"},
         )
         response = client.post(
             "/auth/register",
-            json={"email": "dup@test.com", "password": "pass123", "full_name": "Dup"},
+            json={"email": "dup@test.com", "password": "Pass123!", "full_name": "Dup"},
         )
         assert response.status_code == 409
 
     def test_login_valid(self):
         client.post(
             "/auth/register",
-            json={"email": "login@test.com", "password": "pass123", "full_name": "Login"},
+            json={"email": "login@test.com", "password": "Pass123!", "full_name": "Login"},
         )
-        response = client.post("/auth/login", json={"email": "login@test.com", "password": "pass123"})
+        response = client.post("/auth/login", json={"email": "login@test.com", "password": "Pass123!"})
         assert response.status_code == 200
         assert "access_token" in response.json()
 
@@ -91,7 +91,7 @@ class TestAuthentication:
     def test_protected_route_with_token(self):
         reg = client.post(
             "/auth/register",
-            json={"email": "me@test.com", "password": "pass123", "full_name": "Me"},
+            json={"email": "me@test.com", "password": "Pass123!", "full_name": "Me"},
         )
         token = reg.json().get("access_token")
         response = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
@@ -107,7 +107,7 @@ class TestVideo:
     def test_process_invalid_url(self):
         reg = client.post(
             "/auth/register",
-            json={"email": "vid@test.com", "password": "pass123", "full_name": "Vid"},
+            json={"email": "vid@test.com", "password": "Pass123!", "full_name": "Vid"},
         )
         token = reg.json().get("access_token")
         response = client.post(
@@ -121,11 +121,11 @@ class TestVideo:
         # Crée 2 utilisateurs différents
         client.post(
             "/auth/register",
-            json={"email": "user1@test.com", "password": "pass123", "full_name": "U1"},
+            json={"email": "user1@test.com", "password": "Pass123!", "full_name": "U1"},
         )
         u2 = client.post(
             "/auth/register",
-            json={"email": "user2@test.com", "password": "pass123", "full_name": "U2"},
+            json={"email": "user2@test.com", "password": "Pass123!", "full_name": "U2"},
         )
         token2 = u2.json().get("access_token")
         # User2 essaie d'accéder aux clips de User1 avec un faux video_id

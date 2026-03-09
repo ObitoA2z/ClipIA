@@ -12,6 +12,18 @@ DATABASE: Dict[str, Dict[str, Dict[str, Any]]] = {
     "clips": {},
     "subscriptions": {},
     "sessions": {},
+    "audit_logs": {},
+    "push_subscriptions": {},
+    "feature_flags": {},
+    "referrals": {},
+    "clip_comments": {},
+    "api_keys": {},
+    "feedback": {},
+    "feature_requests": {},
+    "feature_votes": {},
+    "usage_logs": {},
+    "teams": {},
+    "team_members": {},
 }
 
 DB_LOCK = Lock()

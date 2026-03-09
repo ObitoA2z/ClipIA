@@ -4,8 +4,12 @@
 import os
 
 import stripe
-from fastapi import APIRouter, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel
+
+from services.audit import log_audit
+from utils.auth import require_current_user
+from utils.rate_limit import limiter
 
 router = APIRouter(prefix="/payment", tags=["payment"])
 
@@ -17,7 +21,19 @@ class CheckoutRequest(BaseModel):
 
 
 @router.post("/create-checkout")
-def create_checkout(payload: CheckoutRequest) -> dict:
+@limiter.limit("10/minute")
+def create_checkout(
+    request: Request,
+    payload: CheckoutRequest,
+    current_user: dict = Depends(require_current_user),
+) -> dict:
+    log_audit(
+        action="payment.checkout.created",
+        success=True,
+        user_id=current_user["id"],
+        request=request,
+        metadata={"plan": payload.plan},
+    )
     return {
         "checkout_url": f"https://checkout.clipai.local/{payload.plan}",
         "message": "Mock checkout créé",
@@ -25,12 +41,23 @@ def create_checkout(payload: CheckoutRequest) -> dict:
 
 
 @router.post("/cancel")
-def cancel_subscription() -> dict:
+@limiter.limit("10/minute")
+def cancel_subscription(
+    request: Request,
+    current_user: dict = Depends(require_current_user),
+) -> dict:
+    log_audit(
+        action="payment.subscription.cancelled",
+        success=True,
+        user_id=current_user["id"],
+        request=request,
+    )
     return {"message": "Abonnement annulé (mock)"}
 
 
 @router.get("/status")
-def payment_status() -> dict:
+def payment_status(current_user: dict = Depends(require_current_user)) -> dict:
+    _ = current_user
     return {"plan": "free", "status": "active"}
 
 
