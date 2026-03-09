@@ -40,7 +40,21 @@ from routes.video import router as video_router
 from utils.helpers import ensure_dir, ffmpeg_binary, resolve_temp_dir, run_subprocess
 from utils.rate_limit import limiter
 
+try:
+    import sentry_sdk
+except Exception:  # pragma: no cover
+    sentry_sdk = None
+
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
+
+sentry_dsn = os.getenv("SENTRY_DSN", "").strip()
+if sentry_dsn and sentry_sdk is not None:
+    sentry_sdk.init(
+        dsn=sentry_dsn,
+        traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.1")),
+        environment=os.getenv("ENVIRONMENT", "development"),
+        send_default_pii=False,
+    )
 
 app = FastAPI(
     title="ClipAI API",

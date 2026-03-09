@@ -4,7 +4,9 @@
 import secrets
 import os
 from datetime import datetime, timedelta, timezone
+from urllib.parse import urlencode
 
+import httpx
 from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse
 
@@ -591,25 +593,245 @@ def discord_oauth_redirect() -> RedirectResponse:
     return _oauth_redirect("discord")
 
 
+def _oauth_callback_url(provider: str) -> str:
+    backend = os.getenv("BACKEND_PUBLIC_URL", "http://127.0.0.1:8000").rstrip("/")
+    return os.getenv(f"OAUTH_{provider.upper()}_CALLBACK", f"{backend}/auth/{provider}/callback").strip()
+
+
+def _oauth_exchange_code(provider: str, code: str) -> dict:
+    provider_key = provider.lower()
+    client_id = os.getenv(f"OAUTH_{provider_key.upper()}_CLIENT_ID", "").strip()
+    client_secret = os.getenv(f"OAUTH_{provider_key.upper()}_CLIENT_SECRET", "").strip()
+    if not client_id or not client_secret:
+        raise HTTPException(status_code=503, detail=f"OAuth {provider_key} non configure")
+
+    callback_url = _oauth_callback_url(provider_key)
+    timeout = httpx.Timeout(15.0)
+
+    if provider_key == "google":
+        token_url = "https://oauth2.googleapis.com/token"
+        data = {
+            "code": code,
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "redirect_uri": callback_url,
+            "grant_type": "authorization_code",
+        }
+        response = httpx.post(token_url, data=data, timeout=timeout)
+        response.raise_for_status()
+        return response.json()
+
+    if provider_key == "github":
+        token_url = "https://github.com/login/oauth/access_token"
+        data = {
+            "code": code,
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "redirect_uri": callback_url,
+        }
+        headers = {"Accept": "application/json"}
+        response = httpx.post(token_url, data=data, headers=headers, timeout=timeout)
+        response.raise_for_status()
+        return response.json()
+
+    if provider_key == "discord":
+        token_url = "https://discord.com/api/oauth2/token"
+        data = {
+            "code": code,
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "redirect_uri": callback_url,
+            "grant_type": "authorization_code",
+        }
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
+        response = httpx.post(token_url, data=data, headers=headers, timeout=timeout)
+        response.raise_for_status()
+        return response.json()
+
+    raise HTTPException(status_code=400, detail="Provider OAuth inconnu")
+
+
+def _oauth_fetch_profile(provider: str, access_token: str) -> dict:
+    provider_key = provider.lower()
+    timeout = httpx.Timeout(15.0)
+
+    if provider_key == "google":
+        response = httpx.get(
+            "https://www.googleapis.com/oauth2/v2/userinfo",
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=timeout,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        return {
+            "provider_user_id": str(payload.get("id") or ""),
+            "email": str(payload.get("email") or "").lower().strip(),
+            "full_name": str(payload.get("name") or payload.get("email") or "Google User"),
+            "avatar_url": str(payload.get("picture") or ""),
+        }
+
+    if provider_key == "github":
+        user_response = httpx.get(
+            "https://api.github.com/user",
+            headers={"Authorization": f"Bearer {access_token}", "Accept": "application/vnd.github+json"},
+            timeout=timeout,
+        )
+        user_response.raise_for_status()
+        user_payload = user_response.json()
+        email = str(user_payload.get("email") or "").lower().strip()
+        if not email:
+            emails_response = httpx.get(
+                "https://api.github.com/user/emails",
+                headers={"Authorization": f"Bearer {access_token}", "Accept": "application/vnd.github+json"},
+                timeout=timeout,
+            )
+            if emails_response.status_code == 200:
+                emails_payload = emails_response.json()
+                primary = next((item for item in emails_payload if item.get("primary")), None)
+                email = str((primary or {}).get("email") or "")
+        return {
+            "provider_user_id": str(user_payload.get("id") or ""),
+            "email": email.lower().strip(),
+            "full_name": str(user_payload.get("name") or user_payload.get("login") or "GitHub User"),
+            "avatar_url": str(user_payload.get("avatar_url") or ""),
+        }
+
+    if provider_key == "discord":
+        response = httpx.get(
+            "https://discord.com/api/users/@me",
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=timeout,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        email = str(payload.get("email") or "").lower().strip()
+        avatar = str(payload.get("avatar") or "")
+        avatar_url = ""
+        if avatar and payload.get("id"):
+            avatar_url = f"https://cdn.discordapp.com/avatars/{payload['id']}/{avatar}.png"
+        return {
+            "provider_user_id": str(payload.get("id") or ""),
+            "email": email,
+            "full_name": str(payload.get("global_name") or payload.get("username") or "Discord User"),
+            "avatar_url": avatar_url,
+        }
+
+    raise HTTPException(status_code=400, detail="Provider OAuth inconnu")
+
+
+def _upsert_oauth_user(provider: str, profile: dict) -> dict:
+    email = str(profile.get("email") or "").strip().lower()
+    if not email:
+        provider_user_id = str(profile.get("provider_user_id") or "unknown")
+        email = f"{provider}_{provider_user_id}@oauth.clipai.local"
+
+    user = find_one("users", "email", email)
+    now = utc_now_iso()
+    full_name = str(profile.get("full_name") or email.split("@", maxsplit=1)[0])
+    avatar_url = str(profile.get("avatar_url") or "")
+
+    if user:
+        update_record(
+            "users",
+            user["id"],
+            {
+                "full_name": full_name,
+                "avatar_url": avatar_url or user.get("avatar_url", ""),
+                "updated_at": now,
+            },
+        )
+        return get_record("users", user["id"]) or user
+
+    user_id = new_id()
+    random_password = secrets.token_urlsafe(24) + "A1!"
+    password_hash = hash_password(random_password)
+    insert_record(
+        "users",
+        user_id,
+        {
+            "id": user_id,
+            "email": email,
+            "full_name": full_name,
+            "avatar_url": avatar_url,
+            "bio": "",
+            "youtube_url": "",
+            "password_hash": password_hash,
+            "password_history": [password_hash],
+            "plan": "free",
+            "videos_used_this_month": 0,
+            "preferences": {
+                "language": "fr",
+                "timezone": "Europe/Paris",
+                "preferred_format": "all",
+                "preferred_quality": "1080p",
+                "subtitles_default": True,
+            },
+            "totp_secret_encrypted": "",
+            "pending_totp_secret_encrypted": "",
+            "two_factor_enabled": False,
+            "is_admin": False,
+            "created_at": now,
+            "updated_at": now,
+        },
+    )
+    return get_record("users", user_id) or {"id": user_id, "email": email, "full_name": full_name}
+
+
+def _oauth_frontend_redirect(*, success: bool, tokens: dict | None = None, error_message: str | None = None) -> RedirectResponse:
+    frontend = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
+    params: dict[str, str] = {"oauth": "success" if success else "error"}
+    if tokens:
+        params.update(
+            {
+                "access_token": str(tokens.get("access_token") or ""),
+                "refresh_token": str(tokens.get("refresh_token") or ""),
+                "user_id": str(tokens.get("user_id") or ""),
+            }
+        )
+    if error_message:
+        params["message"] = error_message
+    return RedirectResponse(url=f"{frontend}/login?{urlencode(params)}", status_code=307)
+
+
+def _oauth_callback(provider: str, request: Request, code: str | None, state: str | None) -> RedirectResponse:
+    _ = state
+    if not code:
+        return _oauth_frontend_redirect(success=False, error_message="oauth_code_missing")
+    try:
+        token_payload = _oauth_exchange_code(provider, code)
+        access_token = str(token_payload.get("access_token") or "")
+        if not access_token:
+            return _oauth_frontend_redirect(success=False, error_message="oauth_token_missing")
+        profile = _oauth_fetch_profile(provider, access_token)
+        user = _upsert_oauth_user(provider, profile)
+        tokens = _build_tokens_for_user(user_id=user["id"], request=request).model_dump()
+        return _oauth_frontend_redirect(success=True, tokens=tokens)
+    except Exception as exc:
+        return _oauth_frontend_redirect(success=False, error_message=f"oauth_failed:{provider}:{exc}")
+
+
 @router.get("/google/callback")
 def google_oauth_callback(
+    request: Request,
     code: str | None = Query(default=None),
     state: str | None = Query(default=None),
-) -> dict:
-    return {"provider": "google", "code_received": bool(code), "state_received": bool(state)}
+) -> RedirectResponse:
+    return _oauth_callback("google", request, code, state)
 
 
 @router.get("/github/callback")
 def github_oauth_callback(
+    request: Request,
     code: str | None = Query(default=None),
     state: str | None = Query(default=None),
-) -> dict:
-    return {"provider": "github", "code_received": bool(code), "state_received": bool(state)}
+) -> RedirectResponse:
+    return _oauth_callback("github", request, code, state)
 
 
 @router.get("/discord/callback")
 def discord_oauth_callback(
+    request: Request,
     code: str | None = Query(default=None),
     state: str | None = Query(default=None),
-) -> dict:
-    return {"provider": "discord", "code_received": bool(code), "state_received": bool(state)}
+) -> RedirectResponse:
+    return _oauth_callback("discord", request, code, state)

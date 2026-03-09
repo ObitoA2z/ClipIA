@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
 import useAuth from "../hooks/useAuth";
+import { setStoredTokens } from "../services/api";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import Input from "../components/ui/Input";
@@ -21,6 +22,28 @@ function Login() {
   const [isLoading, setIsLoading] = useState(false);
 
   const from = location.state?.from || "/dashboard";
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const oauthStatus = params.get("oauth");
+    if (!oauthStatus) {
+      return;
+    }
+    if (oauthStatus === "error") {
+      const message = params.get("message") || "OAuth impossible";
+      toast.error(message);
+      return;
+    }
+    const accessToken = params.get("access_token");
+    const refreshToken = params.get("refresh_token");
+    if (!accessToken || !refreshToken) {
+      toast.error("OAuth incomplet");
+      return;
+    }
+    setStoredTokens({ access_token: accessToken, refresh_token: refreshToken });
+    toast.success("Connexion OAuth reussie");
+    window.location.href = "/dashboard";
+  }, [location.search]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();

@@ -5,7 +5,7 @@ import asyncio
 import os
 import shutil
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 
 from database.connection import delete_record, get_record, insert_record, list_records, update_record
 from middleware.security import validate_youtube_url_strict
@@ -19,6 +19,7 @@ from services.formatter import format_vertical
 from services.transcriber import transcribe_audio
 from services.uploader import upload_clips
 from services.virality_scorer import enrich_highlights_with_virality
+from services.auth_security import validate_session_token
 from utils.auth import require_current_user
 from utils.helpers import new_id, utc_now_iso
 from utils.rate_limit import limiter
@@ -238,6 +239,52 @@ def get_video_status(video_id: str, current_user: dict = Depends(require_current
         "error_message": video.get("error_message"),
         "clips_count": video.get("clips_count", 0),
     }
+
+
+@router.websocket("/{video_id}/ws")
+async def video_status_ws(websocket: WebSocket, video_id: str, token: str | None = Query(default=None)) -> None:
+    await websocket.accept()
+    if not token:
+        await websocket.send_json({"error": "token manquant"})
+        await websocket.close(code=1008)
+        return
+
+    try:
+        session = validate_session_token(token, kind="access")
+    except Exception:
+        await websocket.send_json({"error": "token invalide"})
+        await websocket.close(code=1008)
+        return
+
+    user_id = session.get("user_id")
+    if not user_id:
+        await websocket.send_json({"error": "session invalide"})
+        await websocket.close(code=1008)
+        return
+
+    try:
+        while True:
+            video = get_record("videos", video_id)
+            if not video or video.get("user_id") != user_id:
+                await websocket.send_json({"error": "video introuvable"})
+                await websocket.close(code=1008)
+                return
+
+            payload = {
+                "id": video["id"],
+                "status": video.get("status", "pending"),
+                "progress_percent": int(video.get("progress_percent", 0) or 0),
+                "error_message": video.get("error_message"),
+                "clips_count": int(video.get("clips_count", 0) or 0),
+            }
+            await websocket.send_json(payload)
+
+            if payload["status"] in {"done", "error"}:
+                await websocket.close(code=1000)
+                return
+            await asyncio.sleep(1)
+    except WebSocketDisconnect:
+        return
 
 
 @router.delete("/{video_id}")

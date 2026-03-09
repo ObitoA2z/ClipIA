@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -32,9 +32,51 @@ function Dashboard() {
   const { videosQuery, processMutation } = useVideo();
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const [livePipelineStatus, setLivePipelineStatus] = useState(null);
 
   const videos = videosQuery.data || [];
   const currentVideo = videos.find((video) => video.status !== "done" && video.status !== "error") || videos[0] || null;
+
+  useEffect(() => {
+    if (!currentVideo?.id) {
+      setLivePipelineStatus(null);
+      return undefined;
+    }
+    const token = localStorage.getItem("clipai_token");
+    if (!token) {
+      return undefined;
+    }
+
+    const apiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+    const wsBase = apiBase.startsWith("https://")
+      ? apiBase.replace("https://", "wss://")
+      : apiBase.replace("http://", "ws://");
+    const wsUrl = `${wsBase}/video/${currentVideo.id}/ws?token=${encodeURIComponent(token)}`;
+
+    let socket;
+    try {
+      socket = new WebSocket(wsUrl);
+    } catch {
+      return undefined;
+    }
+
+    socket.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data);
+        if (payload?.status) {
+          setLivePipelineStatus(payload);
+        }
+      } catch {
+        // ignore malformed frame
+      }
+    };
+
+    return () => {
+      if (socket && socket.readyState <= 1) {
+        socket.close();
+      }
+    };
+  }, [currentVideo?.id]);
 
   const stats = useMemo(() => {
     const done = videos.filter((video) => video.status === "done").length;
@@ -43,6 +85,16 @@ function Dashboard() {
     const hoursSaved = (clips * 0.25).toFixed(1);
     return { done, processing, clips, hoursSaved };
   }, [videos]);
+
+  const onboarding = useMemo(
+    () => [
+      { key: "profile", label: "Completer le profil", done: Boolean(user?.full_name && user?.email) },
+      { key: "first-video", label: "Lancer une premiere video", done: videos.length > 0 },
+      { key: "first-clip", label: "Obtenir un premier clip", done: stats.clips > 0 },
+      { key: "upgrade", label: "Debloquer Pro (optionnel)", done: user?.plan === "pro" || user?.plan === "business" },
+    ],
+    [stats.clips, user?.email, user?.full_name, user?.plan, videos.length]
+  );
 
   const filteredVideos = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -73,7 +125,7 @@ function Dashboard() {
     <section className="page">
       <Card>
         <h2 className="section-title" style={{ fontSize: "2rem" }}>
-          Bonjour {user?.full_name || "createur"} 👋
+          Bonjour {user?.full_name || "createur"}
         </h2>
         <p className="muted">Ton studio ClipAI est pret. Lance un nouveau traitement ci-dessous.</p>
 
@@ -98,6 +150,32 @@ function Dashboard() {
         </div>
       </Card>
 
+      <Card>
+        <div className="inline-actions" style={{ justifyContent: "space-between", alignItems: "center" }}>
+          <h3>Checklist de demarrage</h3>
+          <span className="muted">
+            {onboarding.filter((item) => item.done).length}/{onboarding.length} terminee(s)
+          </span>
+        </div>
+        <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+          {onboarding.map((item) => (
+            <div
+              key={item.key}
+              className="ui-card"
+              style={{
+                padding: 10,
+                borderColor: item.done ? "rgba(16,185,129,0.35)" : "var(--border)",
+                background: item.done ? "rgba(16,185,129,0.08)" : "transparent",
+              }}
+            >
+              <span style={{ fontWeight: 600 }}>
+                {item.done ? "✅" : "⬜"} {item.label}
+              </span>
+            </div>
+          ))}
+        </div>
+      </Card>
+
       {stats.processing > 0 ? (
         <div className="ui-card" style={{ borderColor: "var(--border-hover)", animation: "glowPulse 2.2s ease infinite" }}>
           🔄 {stats.processing} traitement(s) en cours
@@ -106,7 +184,12 @@ function Dashboard() {
 
       <VideoInput isLoading={processMutation.isPending} onSubmit={handleSubmit} />
 
-      {currentVideo ? <ProcessingStatus status={currentVideo.status} progress={currentVideo.progress_percent} /> : null}
+      {currentVideo ? (
+        <ProcessingStatus
+          status={livePipelineStatus?.status || currentVideo.status}
+          progress={livePipelineStatus?.progress_percent ?? currentVideo.progress_percent}
+        />
+      ) : null}
 
       <Card>
         <div className="inline-actions" style={{ justifyContent: "space-between", alignItems: "center" }}>

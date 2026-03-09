@@ -18,12 +18,12 @@ const FILTERS = [
 
 function VideoDetail() {
   const { videoId } = useParams();
-  const { detailsQuery, statusQuery, clipsQuery } = useVideo(videoId);
+  const { detailsQuery, statusQuery, liveStatus, clipsQuery } = useVideo(videoId);
   const [filter, setFilter] = useState("all");
   const [isDownloadingZip, setIsDownloadingZip] = useState(false);
 
   const video = detailsQuery.data;
-  const status = statusQuery.data;
+  const status = liveStatus || statusQuery.data;
   const clips = clipsQuery.data || [];
 
   const headerMeta = useMemo(() => {

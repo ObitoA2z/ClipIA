@@ -29,11 +29,13 @@ const Home = lazy(() => import("./pages/Home"));
 const Login = lazy(() => import("./pages/Login"));
 const Pricing = lazy(() => import("./pages/Pricing"));
 const Profile = lazy(() => import("./pages/Profile"));
+const Privacy = lazy(() => import("./pages/Privacy"));
 const ReferralPage = lazy(() => import("./pages/ReferralPage"));
 const Register = lazy(() => import("./pages/Register"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const Scheduler = lazy(() => import("./pages/Scheduler"));
 const TeamSettings = lazy(() => import("./pages/TeamSettings"));
+const Terms = lazy(() => import("./pages/Terms"));
 const VideoDetail = lazy(() => import("./pages/VideoDetail"));
 
 const AUTH_LAYOUT_PREFIXES = [
@@ -70,6 +72,8 @@ function AppRoutes() {
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/pricing" element={<Pricing />} />
+      <Route path="/terms" element={<Terms />} />
+      <Route path="/privacy" element={<Privacy />} />
       <Route
         path="/referral"
         element={(

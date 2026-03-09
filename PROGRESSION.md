@@ -1,4 +1,4 @@
-# PROGRESSION
+ï»¿# PROGRESSION
 
 ðŸ“– LECTURE TERMINÃ‰E â€” 43 fichiers lus â€” 43 complets â€” 0 incomplets â€” 0 manquants
 âœ… PROGRESSION.md â€” Initialisation et rÃ©sumÃ© Mission 1 â€” 12:44
@@ -195,23 +195,23 @@
 âœ… frontend\src\components\AICommandBar.jsx â€” Barre de commandes IA connectee a /ai-commands/apply â€” 12:15
 âœ… frontend\src\components\ThumbnailEditor.jsx â€” UI generation thumbnails (3 variantes) branchee backend â€” 12:15
 âœ… frontend\src\pages\ClipEditor.jsx â€” Integration AICommandBar + ThumbnailEditor dans l'editeur clip â€” 12:15
-? backend\services\virality_scorer.py — Service complet de scoring viralite (8 criteres, Gemini + fallback heuristique) — 12:34
-? backend\database\migrations\008_virality.sql — Migration colonnes virality_score/hook_text/improvement_tip/best_platform — 12:34
-? backend\routes\video.py — Pipeline enrichie avec status extracting + scoring viralite avant decoupe — 12:34
-? backend\models\clip.py — Modele ClipPublic etendu avec champs viralite — 12:34
-? backend\services\uploader.py — Persistance des metadonnees virality/hook/tip/platform dans chaque clip upload — 12:34
-? backend\services\publishing_service.py — Service unifie de publication multi-plateformes pour scheduler/task/routes — 12:34
-? backend\tasks\video_tasks.py — Taches Celery operationnelles (publish, cleanup, track_performance, score_highlights) — 12:34
-? backend\tasks\celery_app.py — Celery beat configure (publication planifiee, cleanup, tracking) — 12:34
-? backend\routes\clips.py — Route download-all ZIP ajoutee + streaming des clips locaux/distants — 12:34
-? backend\routes\stats.py — Endpoint /stats/public avec cache TTL 5 min (local + redis) — 12:34
-? backend\main.py — Route stats branchee dans l'application — 12:34
-? backend\requirements.txt — Dependances manquantes vision/audio/IA ajoutees (opencv, mediapipe, librosa, etc.) — 12:34
-? backend\routes\publishing.py — Publication immediate branchee sur publishing_service central — 12:34
-? frontend\package.json — Dependances UI ajoutees (canvas-confetti, recharts) — 12:34
-? frontend\package-lock.json — Lockfile regenere apres installation dependances — 12:34
-? frontend\src\components\ProcessingStatus.jsx — Fix extracting + confetti reel + timer par etape + highlight etape active — 12:34
-? backend\tests\test_all.py — Suite tests etendue a 29 tests (virality, zip, stats, scheduler) — 12:34
+? backend\services\virality_scorer.py ï¿½ Service complet de scoring viralite (8 criteres, Gemini + fallback heuristique) ï¿½ 12:34
+? backend\database\migrations\008_virality.sql ï¿½ Migration colonnes virality_score/hook_text/improvement_tip/best_platform ï¿½ 12:34
+? backend\routes\video.py ï¿½ Pipeline enrichie avec status extracting + scoring viralite avant decoupe ï¿½ 12:34
+? backend\models\clip.py ï¿½ Modele ClipPublic etendu avec champs viralite ï¿½ 12:34
+? backend\services\uploader.py ï¿½ Persistance des metadonnees virality/hook/tip/platform dans chaque clip upload ï¿½ 12:34
+? backend\services\publishing_service.py ï¿½ Service unifie de publication multi-plateformes pour scheduler/task/routes ï¿½ 12:34
+? backend\tasks\video_tasks.py ï¿½ Taches Celery operationnelles (publish, cleanup, track_performance, score_highlights) ï¿½ 12:34
+? backend\tasks\celery_app.py ï¿½ Celery beat configure (publication planifiee, cleanup, tracking) ï¿½ 12:34
+? backend\routes\clips.py ï¿½ Route download-all ZIP ajoutee + streaming des clips locaux/distants ï¿½ 12:34
+? backend\routes\stats.py ï¿½ Endpoint /stats/public avec cache TTL 5 min (local + redis) ï¿½ 12:34
+? backend\main.py ï¿½ Route stats branchee dans l'application ï¿½ 12:34
+? backend\requirements.txt ï¿½ Dependances manquantes vision/audio/IA ajoutees (opencv, mediapipe, librosa, etc.) ï¿½ 12:34
+? backend\routes\publishing.py ï¿½ Publication immediate branchee sur publishing_service central ï¿½ 12:34
+? frontend\package.json ï¿½ Dependances UI ajoutees (canvas-confetti, recharts) ï¿½ 12:34
+? frontend\package-lock.json ï¿½ Lockfile regenere apres installation dependances ï¿½ 12:34
+? frontend\src\components\ProcessingStatus.jsx ï¿½ Fix extracting + confetti reel + timer par etape + highlight etape active ï¿½ 12:34
+? backend\tests\test_all.py ï¿½ Suite tests etendue a 29 tests (virality, zip, stats, scheduler) ï¿½ 12:34
 OK backend/models/user.py -- Ajout schemas update profil/preferences/changement mot de passe -- 13:14
 OK backend/routes/auth.py -- Endpoints /auth/me PUT, /auth/change-password, /auth/preferences + enrichissement UserPublic -- 13:14
 OK backend/models/__init__.py -- Export des nouveaux modeles user -- 13:14
@@ -259,3 +259,14 @@ OK mobile/src/screens/DashboardScreen.tsx -- submit reel + polling status API --
 OK mobile/package.json -- Ajout dependency AsyncStorage -- 13:14
 OK backend/tests/test_all.py -- 32/32 tests passants -- 13:14
 OK frontend build -- npm run build succes -- 13:14
+
+âœ… backend/routes/payment.py â€” restauration + integration Stripe reelle (checkout/status/cancel/billing/webhook sync) â€” 13:32
+âœ… backend/routes/auth.py â€” OAuth callback complet (exchange code, profil, upsert user, redirect frontend avec tokens) â€” 13:32
+âœ… backend/routes/video.py â€” WebSocket statut video temps reel + controle ownership/token â€” 13:32
+âœ… backend/services/scheduler_service.py + backend/routes/scheduler.py â€” relance manuelle des posts planifies (retry) â€” 13:32
+âœ… backend/main.py + backend/requirements.txt â€” monitoring Sentry activable via SENTRY_DSN â€” 13:32
+âœ… frontend/src/hooks/useVideo.js + pages Dashboard/VideoDetail â€” consommation du statut live WebSocket â€” 13:32
+âœ… frontend/src/pages/Terms.jsx + Privacy.jsx + Footer/App routes â€” pages legales et liens publics â€” 13:32
+âœ… frontend/playwright.config.js + frontend/tests/e2e/smoke.spec.js + package.json â€” base E2E Playwright ajoutee â€” 13:32
+âœ… frontend/src/pages/Scheduler.jsx â€” UX scheduler fiabilisee (cancel/retry/delete + statut) â€” 13:32
+âœ… frontend/src/pages/Dashboard.jsx â€” checklist onboarding utilisateur integree â€” 13:32

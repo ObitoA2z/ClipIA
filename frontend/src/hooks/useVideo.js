@@ -1,4 +1,5 @@
-﻿import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+﻿import { useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
   getVideo,
@@ -10,6 +11,7 @@ import {
 
 export default function useVideo(videoId = "") {
   const queryClient = useQueryClient();
+  const [liveStatus, setLiveStatus] = useState(null);
 
   const videosQuery = useQuery({
     queryKey: ["videos"],
@@ -49,10 +51,53 @@ export default function useVideo(videoId = "") {
     refetchInterval: 3000,
   });
 
+  useEffect(() => {
+    if (!videoId) {
+      setLiveStatus(null);
+      return undefined;
+    }
+
+    const token = localStorage.getItem("clipai_token");
+    if (!token) {
+      return undefined;
+    }
+
+    const apiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+    const wsBase = apiBase.startsWith("https://")
+      ? apiBase.replace("https://", "wss://")
+      : apiBase.replace("http://", "ws://");
+    const wsUrl = `${wsBase}/video/${videoId}/ws?token=${encodeURIComponent(token)}`;
+
+    let socket;
+    try {
+      socket = new WebSocket(wsUrl);
+    } catch {
+      return undefined;
+    }
+
+    socket.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data);
+        if (payload && typeof payload === "object" && payload.status) {
+          setLiveStatus(payload);
+        }
+      } catch {
+        // ignore malformed frames
+      }
+    };
+
+    return () => {
+      if (socket && socket.readyState <= 1) {
+        socket.close();
+      }
+    };
+  }, [videoId]);
+
   return {
     videosQuery,
     processMutation,
     statusQuery,
+    liveStatus,
     detailsQuery,
     clipsQuery,
   };

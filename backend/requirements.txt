@@ -47,3 +47,4 @@ python-json-logger==3.3.0
 brotli==1.1.0
 pywebpush==2.0.3
 resend==2.13.0
+sentry-sdk==2.23.1

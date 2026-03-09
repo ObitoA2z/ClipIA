@@ -12,6 +12,7 @@ from services.scheduler_service import (
     create_scheduled_post,
     delete_scheduled_post,
     list_scheduled_posts,
+    retry_scheduled_post,
 )
 from utils.auth import require_current_user
 
@@ -66,3 +67,11 @@ def delete_event(event_id: str, current_user: dict = Depends(require_current_use
     if not delete_scheduled_post(event_id, current_user["id"]):
         raise HTTPException(status_code=404, detail="Evenement introuvable")
     return {"message": "Evenement supprime"}
+
+
+@router.post("/events/{event_id}/retry")
+def retry_event(event_id: str, current_user: dict = Depends(require_current_user)) -> dict:
+    event = retry_scheduled_post(event_id, current_user["id"])
+    if not event:
+        raise HTTPException(status_code=404, detail="Evenement introuvable ou non relancable")
+    return {"message": "Publication relancee", "event": event}

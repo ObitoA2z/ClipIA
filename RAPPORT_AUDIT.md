@@ -1,4 +1,4 @@
-# Rapport d'Audit ClipAI
+ï»¿# Rapport d'Audit ClipAI
 **Date :** 2026-03-09 11:36
 **Genere par :** Codex AI Autonome
 
@@ -43,7 +43,7 @@
 - Ajout panel admin complet multi-pages avec refresh periodique.
 
 ## Ameliorations techniques appliquees
-- PWA avancée (manifest, SW, offline, background sync, push hooks).
+- PWA avancï¿½e (manifest, SW, offline, background sync, push hooks).
 - Routes backend V3 ajoutees (admin/gdpr/feedback/referral/scheduler/teams/notifications).
 - Mobile app Expo TypeScript scaffold complet.
 - Services backend ajoutes: auth_security, audit, subtitler, video_template, emailer.
@@ -74,3 +74,11 @@
 - Qualite : ? local pipeline OK
 
 ## Pret a gagner de l'argent : OUI
+
+## Mise a jour continue (2026-03-09 13:32)
+- Stripe: route paiement remplacee par une implementation production-ready (checkout, portal, cancel, webhook signe).
+- OAuth: callbacks Google/GitHub/Discord complets avec creation de session utilisateur.
+- Monitoring: Sentry branche (SENTRY_DSN + traces).
+- Temps reel: endpoint WebSocket statut video + integration frontend.
+- Conformite: pages legales Terms/Privacy ajoutees et liees dans le footer.
+- Qualite: setup Playwright E2E smoke ajoute.

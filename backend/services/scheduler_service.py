@@ -163,3 +163,25 @@ def delete_scheduled_post(post_id: str, user_id: str) -> bool:
     if not post or post.get("user_id") != user_id:
         return False
     return delete_record("scheduled_posts", post_id)
+
+
+def retry_scheduled_post(post_id: str, user_id: str) -> dict[str, Any] | None:
+    post = get_record("scheduled_posts", post_id)
+    if not post or post.get("user_id") != user_id:
+        return None
+
+    status = str(post.get("status") or "")
+    if status not in {"failed", "error", "scheduled", "cancelled"}:
+        return None
+
+    return update_record(
+        "scheduled_posts",
+        post_id,
+        {
+            "status": "scheduled",
+            "attempts": 0,
+            "last_error": None,
+            "scheduled_at": _utc_now().isoformat(),
+            "updated_at": utc_now_iso(),
+        },
+    )
