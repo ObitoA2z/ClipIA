@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """Routes video avec pipeline reelle (yt-dlp + ffmpeg + IA optionnelle)."""
 
 import asyncio
@@ -47,12 +47,12 @@ def _set_video_state(video_id: str, status: str, progress: int, error: str | Non
     )
 
 
-async def _process_video(video_id: str, youtube_url: str, user_id: str) -> None:
+async def _process_video(video_id: str, payload: ProcessVideoRequest, user_id: str) -> None:
     """Lance la pipeline de traitement en arriere-plan."""
     work_dir = ""
     try:
         _set_video_state(video_id, "downloading", 10)
-        download_result = await asyncio.to_thread(download_video, youtube_url, video_id)
+        download_result = await asyncio.to_thread(download_video, payload.youtube_url, video_id)
         work_dir = download_result.get("work_dir", "")
 
         update_record(
@@ -72,7 +72,18 @@ async def _process_video(video_id: str, youtube_url: str, user_id: str) -> None:
         transcript = await asyncio.to_thread(transcribe_audio, audio_path)
 
         _set_video_state(video_id, "detecting", 55)
-        highlights = await asyncio.to_thread(detect_highlights, transcript)
+        highlights = await asyncio.to_thread(
+            detect_highlights,
+            transcript,
+            clip_mode=payload.clip_mode,
+            user_prompt=(payload.prompt or "").strip(),
+            video_path=download_result["video_path"],
+            audio_path=audio_path,
+            max_clips=payload.max_clips,
+            min_duration=payload.min_duration,
+            max_duration=payload.max_duration,
+            target_platform=payload.target_platform,
+        )
 
         _set_video_state(video_id, "cutting", 72)
         clips = await asyncio.to_thread(
@@ -83,7 +94,7 @@ async def _process_video(video_id: str, youtube_url: str, user_id: str) -> None:
         )
 
         _set_video_state(video_id, "formatting", 84)
-        vertical_clips = await asyncio.to_thread(format_vertical, clips)
+        vertical_clips = await asyncio.to_thread(format_vertical, clips, layout=payload.layout)
 
         _set_video_state(video_id, "uploading", 94)
         uploaded = await asyncio.to_thread(upload_clips, video_id, vertical_clips)
@@ -140,6 +151,13 @@ async def process_video(
         "id": video_id,
         "user_id": current_user["id"],
         "youtube_url": payload.youtube_url,
+        "clip_mode": payload.clip_mode,
+        "prompt": (payload.prompt or "").strip(),
+        "max_clips": payload.max_clips,
+        "min_duration": payload.min_duration,
+        "max_duration": payload.max_duration,
+        "target_platform": payload.target_platform,
+        "layout": payload.layout,
         "youtube_id": youtube_id,
         "title": metadata.get("title") or "En preparation",
         "duration_seconds": int(metadata.get("duration_seconds") or 0),
@@ -171,7 +189,7 @@ async def process_video(
             metadata=abuse,
         )
 
-    processing_tasks[video_id] = asyncio.create_task(_process_video(video_id, payload.youtube_url, current_user["id"]))
+    processing_tasks[video_id] = asyncio.create_task(_process_video(video_id, payload, current_user["id"]))
     return VideoStatus(**record)
 
 

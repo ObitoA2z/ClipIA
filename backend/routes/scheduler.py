@@ -1,31 +1,35 @@
 # -*- coding: utf-8 -*-
 """Routes planification des publications."""
 
+from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from database.connection import delete_record, get_record, insert_record, list_records
+from database.connection import get_record
+from services.scheduler_service import (
+    cancel_scheduled_post,
+    create_scheduled_post,
+    delete_scheduled_post,
+    list_scheduled_posts,
+)
 from utils.auth import require_current_user
-from utils.helpers import new_id, utc_now_iso
 
 router = APIRouter(prefix="/scheduler", tags=["scheduler"])
 
 
 class ScheduledPostRequest(BaseModel):
     clip_id: str = Field(min_length=6)
-    platform: str = Field(pattern="^(tiktok|reels|shorts|youtube)$")
+    platform: str = Field(pattern="^(tiktok|reels|shorts|youtube|instagram|linkedin)$")
     scheduled_at: str = Field(min_length=10)
+    title: str = Field(default="", max_length=120)
+    description: str = Field(default="", max_length=2200)
+    hashtags: list[str] = Field(default_factory=list)
 
 
 @router.get("/events")
 def list_scheduled_events(current_user: dict = Depends(require_current_user)) -> dict:
-    events = [
-        item
-        for item in list_records("usage_logs")
-        if item.get("type") == "scheduled_post" and item.get("user_id") == current_user["id"]
-    ]
-    events.sort(key=lambda row: row.get("scheduled_at", ""))
+    events = list_scheduled_posts(current_user["id"])
     return {"events": events}
 
 
@@ -38,26 +42,27 @@ def create_scheduled_event(
     if not clip or clip.get("user_id") != current_user["id"]:
         raise HTTPException(status_code=404, detail="Clip introuvable")
 
-    event_id = new_id()
-    event = {
-        "id": event_id,
-        "type": "scheduled_post",
-        "user_id": current_user["id"],
-        "clip_id": payload.clip_id,
-        "platform": payload.platform,
-        "scheduled_at": payload.scheduled_at,
-        "status": "planned",
-        "created_at": utc_now_iso(),
-    }
-    insert_record("usage_logs", event_id, event)
+    event = create_scheduled_post(
+        user_id=current_user["id"],
+        clip_id=payload.clip_id,
+        platform=payload.platform,
+        scheduled_at=payload.scheduled_at,
+        title=payload.title,
+        description=payload.description,
+        hashtags=payload.hashtags,
+    )
     return {"message": "Publication planifiee", "event": event}
 
 
-@router.delete("/events/{event_id}")
-def delete_scheduled_event(event_id: str, current_user: dict = Depends(require_current_user)) -> dict:
-    event = get_record("usage_logs", event_id)
-    if not event or event.get("user_id") != current_user["id"]:
+@router.post("/events/{event_id}/cancel")
+def cancel_event(event_id: str, current_user: dict = Depends(require_current_user)) -> dict:
+    if not cancel_scheduled_post(event_id, current_user["id"]):
         raise HTTPException(status_code=404, detail="Evenement introuvable")
-    delete_record("usage_logs", event_id)
-    return {"message": "Evenement supprime"}
+    return {"message": "Publication annulee"}
 
+
+@router.delete("/events/{event_id}")
+def delete_event(event_id: str, current_user: dict = Depends(require_current_user)) -> dict:
+    if not delete_scheduled_post(event_id, current_user["id"]):
+        raise HTTPException(status_code=404, detail="Evenement introuvable")
+    return {"message": "Evenement supprime"}

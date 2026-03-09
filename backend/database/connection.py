@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """Fonctions utilitaires de stockage mémoire (MVP local)."""
 
 from __future__ import annotations
@@ -24,6 +24,10 @@ DATABASE: Dict[str, Dict[str, Dict[str, Any]]] = {
     "usage_logs": {},
     "teams": {},
     "team_members": {},
+    "social_accounts": {},
+    "scheduled_posts": {},
+    "clip_performance": {},
+    "brand_kits": {},
 }
 
 DB_LOCK = Lock()

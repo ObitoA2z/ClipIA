@@ -1,7 +1,21 @@
-﻿import api from "./api";
+import api from "./api";
 
-export async function processVideo(youtubeUrl) {
-  const { data } = await api.post("/video/process", { youtube_url: youtubeUrl });
+export async function processVideo(input) {
+  const payload =
+    typeof input === "string"
+      ? { youtube_url: input }
+      : {
+          youtube_url: input?.youtube_url || "",
+          clip_mode: input?.clip_mode || "talking",
+          prompt: input?.prompt || null,
+          max_clips: input?.max_clips ?? 8,
+          min_duration: input?.min_duration ?? 30,
+          max_duration: input?.max_duration ?? 90,
+          target_platform: input?.target_platform || "all",
+          layout: input?.layout || "centered",
+        };
+
+  const { data } = await api.post("/video/process", payload);
   return data;
 }
 

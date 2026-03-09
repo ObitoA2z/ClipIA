@@ -1,5 +1,5 @@
-﻿# -*- coding: utf-8 -*-
-# Tests automatisés complets pour ClipAI
+# -*- coding: utf-8 -*-
+# Tests automatisÃ©s complets pour ClipAI
 
 import pytest
 from fastapi.testclient import TestClient
@@ -13,7 +13,7 @@ from main import app
 client = TestClient(app)
 
 
-# ── TESTS VALIDATION URL ──────────────────────────────────────────────────────
+# â”€â”€ TESTS VALIDATION URL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class TestURLValidation:
     def test_valid_youtube_url_standard(self):
         from utils.validators import validate_youtube_url
@@ -46,7 +46,7 @@ class TestURLValidation:
         assert extract_youtube_id("https://youtube.com/watch?v=dQw4w9WgXcQ") == "dQw4w9WgXcQ"
 
 
-# ── TESTS AUTHENTIFICATION ────────────────────────────────────────────────────
+# â”€â”€ TESTS AUTHENTIFICATION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class TestAuthentication:
     def test_register_new_user(self):
         response = client.post(
@@ -98,7 +98,7 @@ class TestAuthentication:
         assert response.status_code == 200
 
 
-# ── TESTS VIDÉO ───────────────────────────────────────────────────────────────
+# â”€â”€ TESTS VIDÃ‰O â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class TestVideo:
     def test_process_without_auth(self):
         response = client.post("/video/process", json={"youtube_url": "https://youtube.com/watch?v=abc"})
@@ -117,8 +117,46 @@ class TestVideo:
         )
         assert response.status_code == 400
 
+    def test_process_prompt_mode_requires_prompt(self):
+        reg = client.post(
+            "/auth/register",
+            json={"email": "prompt@test.com", "password": "Pass123!", "full_name": "Prompt"},
+        )
+        token = reg.json().get("access_token")
+        response = client.post(
+            "/video/process",
+            json={
+                "youtube_url": "https://youtube.com/watch?v=dQw4w9WgXcQ",
+                "clip_mode": "prompt",
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 422
+
+    def test_process_visual_mode_is_accepted(self):
+        reg = client.post(
+            "/auth/register",
+            json={"email": "visual@test.com", "password": "Pass123!", "full_name": "Visual"},
+        )
+        token = reg.json().get("access_token")
+        response = client.post(
+            "/video/process",
+            json={
+                "youtube_url": "https://youtube.com/watch?v=dQw4w9WgXcQ",
+                "clip_mode": "visual",
+                "max_clips": 5,
+                "min_duration": 20,
+                "max_duration": 60,
+                "target_platform": "tiktok",
+                "layout": "split",
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code in [200, 201]
+        assert "id" in response.json()
+
     def test_user_cannot_see_other_clips(self):
-        # Crée 2 utilisateurs différents
+        # CrÃ©e 2 utilisateurs diffÃ©rents
         client.post(
             "/auth/register",
             json={"email": "user1@test.com", "password": "Pass123!", "full_name": "U1"},
@@ -128,7 +166,7 @@ class TestVideo:
             json={"email": "user2@test.com", "password": "Pass123!", "full_name": "U2"},
         )
         token2 = u2.json().get("access_token")
-        # User2 essaie d'accéder aux clips de User1 avec un faux video_id
+        # User2 essaie d'accÃ©der aux clips de User1 avec un faux video_id
         response = client.get(
             "/clips/fake-video-id-user1",
             headers={"Authorization": f"Bearer {token2}"},
@@ -136,7 +174,7 @@ class TestVideo:
         assert response.status_code in [403, 404]
 
 
-# ── TESTS PIPELINE ────────────────────────────────────────────────────────────
+# â”€â”€ TESTS PIPELINE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class TestPipeline:
     def test_detector_valid_json_response(self):
         from services.detector import parse_gemini_response
@@ -161,3 +199,45 @@ class TestPipeline:
         hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt())
         assert hashed != password.encode()
         assert bcrypt.checkpw(password.encode(), hashed) == True
+
+    def test_detector_prompt_mode_local_matching(self):
+        from services.detector import detect_highlights
+
+        transcript = {
+            "duration_seconds": 180,
+            "segments": [
+                {"start": 0.0, "end": 15.0, "text": "Introduction generale"},
+                {"start": 15.0, "end": 40.0, "text": "Conseils de vente concrets pour independants"},
+                {"start": 40.0, "end": 70.0, "text": "Etude de cas marketing"},
+            ],
+        }
+        result = detect_highlights(
+            transcript,
+            clip_mode="prompt",
+            user_prompt="vente",
+            max_clips=3,
+            min_duration=20,
+            max_duration=60,
+        )
+        assert len(result) >= 1
+        assert any("vente" in item["reason"].lower() or "vente" in item["hook"].lower() for item in result)
+
+    def test_detector_visual_mode_fallback_without_video_path(self):
+        from services.detector import detect_highlights
+
+        transcript = {
+            "duration_seconds": 120,
+            "segments": [{"start": 0.0, "end": 35.0, "text": "Segment 1"}, {"start": 36.0, "end": 80.0, "text": "Segment 2"}],
+        }
+        result = detect_highlights(transcript, clip_mode="visual", video_path="", max_clips=2)
+        assert len(result) >= 1
+
+    def test_detector_energy_mode_fallback_without_audio_path(self):
+        from services.detector import detect_highlights
+
+        transcript = {
+            "duration_seconds": 120,
+            "segments": [{"start": 0.0, "end": 35.0, "text": "Segment 1"}, {"start": 36.0, "end": 80.0, "text": "Segment 2"}],
+        }
+        result = detect_highlights(transcript, clip_mode="energy", audio_path="", max_clips=2)
+        assert len(result) >= 1

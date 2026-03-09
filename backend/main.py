@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """Point d'entree FastAPI pour ClipAI."""
 
 from __future__ import annotations
@@ -21,12 +21,15 @@ from supabase import create_client
 
 from middleware.security import apply_security_middleware
 from routes.admin import router as admin_router
+from routes.ai_commands import router as ai_commands_router
 from routes.auth import router as auth_router
+from routes.brand import router as brand_router
 from routes.clips import router as clips_router
 from routes.feedback import router as feedback_router
 from routes.gdpr import router as gdpr_router
 from routes.notifications import router as notifications_router
 from routes.payment import router as payment_router
+from routes.publishing import router as publishing_router
 from routes.referral import router as referral_router
 from routes.scheduler import router as scheduler_router
 from routes.teams import router as teams_router
@@ -121,9 +124,12 @@ media_dir = ensure_dir(resolve_temp_dir())
 app.mount("/media", StaticFiles(directory=media_dir), name="media")
 
 app.include_router(auth_router)
+app.include_router(ai_commands_router)
 app.include_router(video_router)
 app.include_router(clips_router)
+app.include_router(brand_router)
 app.include_router(payment_router)
+app.include_router(publishing_router)
 app.include_router(gdpr_router)
 app.include_router(notifications_router)
 app.include_router(admin_router)

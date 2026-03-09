@@ -1,4 +1,4 @@
-﻿# PROGRESSION
+# PROGRESSION
 
 📖 LECTURE TERMINÉE — 43 fichiers lus — 43 complets — 0 incomplets — 0 manquants
 ✅ PROGRESSION.md — Initialisation et résumé Mission 1 — 12:44
@@ -161,3 +161,37 @@
 ✅ frontend/package-lock.json — Lockfile dependances PWA mis a jour — 11:35
 ✅ mobile — Initialisation app mobile Expo TypeScript (screens/components/navigation/services) — 11:35
 🏆 CLIPAI V3.0 TERMINE — Securite bancaire ✅ Mobile PWA ✅ Design Premium ✅ Admin complet ✅ 30+ features ✅ — 11:36
+✅ backend\services\detector.py — 4 modes de clipping (talking/visual/energy/prompt) + fallback robuste + scene/audio analysis — 11:57
+✅ backend\models\video.py — Nouveau payload process video (clip_mode, prompt, durees, plateforme) + validations Pydantic — 11:57
+✅ backend\routes\video.py — Pipeline branchee sur detecteur multi-modes avec options avancees — 11:57
+✅ frontend\src\services\videoService.js — processVideo accepte URL simple ou payload complet — 11:57
+✅ frontend\src\components\VideoInput.jsx — UI modes de clipping + prompt libre + options avancees — 11:57
+✅ backend\tests\test_all.py — Ajout tests modes prompt/visual/energy + validation mode prompt API — 11:57
+✅ backend\tests\test_all.py — Test API clip_mode=visual ajoute pour couvrir le nouveau payload multi-modes — 11:59
+✅ backend\services\formatter.py — ReframeAnything pragmatique: layouts centered/blurred/split + tracking visage OpenCV si disponible — 12:02
+✅ backend\models\video.py — Ajout champ layout dans ProcessVideoRequest — 12:02
+✅ backend\routes\video.py — Layout injecte dans format_vertical et stocke dans la video — 12:02
+✅ frontend\src\services\videoService.js — Payload enrichi avec layout — 12:02
+✅ frontend\src\components\VideoInput.jsx — Selecteur layout (centered/blurred/split) ajoute dans options avancees — 12:02
+✅ backend\tests\test_all.py — Couverture payload layout sur /video/process — 12:02
+✅ backend\services\thumbnail_generator.py — Service AI thumbnails: extraction I-frames, scoring visage/emotion, variantes PNG editables — 12:11
+✅ backend\services\color_grader.py — Presets color grading (none/cinematic/vibrant/clean/warm) avec rendu FFmpeg — 12:11
+✅ backend\services\music_service.py — Ajout musique IA: detection mood, recherche Pixabay, mix audio automatique — 12:11
+✅ backend\services\eye_contact.py — Eye contact correction mode safe avec fallback deterministic — 12:11
+✅ backend\services\green_screen.py — Green screen pragmatique avec modes blur/solid/black — 12:11
+✅ backend\services\ai_coach.py — Rapport coaching hebdomadaire IA + fallback heuristique local — 12:11
+✅ backend\services\performance_tracker.py — Tracking post-publication (engagement score, resume score vs vues) — 12:11
+✅ backend\services\content_repurposer.py — Repurposing multi-format (blog/thread/linkedin/show notes/quotes) — 12:11
+✅ backend\database\migrations\007_social_performance.sql — Migration SQL social accounts, scheduled posts, performance, brand kits — 12:11
+✅ backend\database\connection.py — Nouvelles tables memoire social/performance/brand ajoutees — 12:11
+✅ backend\services\scheduler_service.py — Scheduler robuste (retry exponentiel, statuts, queue due) — 12:11
+✅ backend\routes\scheduler.py — Routes scheduler branchees sur scheduled_posts + cancel explicite — 12:11
+✅ backend\routes\publishing.py — Routes publishing multi-plateformes (connect account + publish now) — 12:11
+✅ backend\routes\ai_commands.py — Underlord commands: parse/apply commandes naturelles sur clips — 12:11
+✅ backend\routes\brand.py — CRUD Brand Kit utilisateur (default, couleurs, captions, logo) — 12:11
+✅ backend\main.py — Branchement routes ai_commands, publishing et brand dans l'API — 12:11
+✅ backend\requirements.txt — Dependances explicites ajoutees pour nouveaux services (Pillow, requests) — 12:12
+✅ backend\routes\clips.py — Endpoint /clips/{id}/thumbnails ajoute pour generation de variantes thumbnail IA — 12:15
+✅ frontend\src\components\AICommandBar.jsx — Barre de commandes IA connectee a /ai-commands/apply — 12:15
+✅ frontend\src\components\ThumbnailEditor.jsx — UI generation thumbnails (3 variantes) branchee backend — 12:15
+✅ frontend\src\pages\ClipEditor.jsx — Integration AICommandBar + ThumbnailEditor dans l'editeur clip — 12:15

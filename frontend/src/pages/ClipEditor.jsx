@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 
+import AICommandBar from "../components/AICommandBar";
+import ThumbnailEditor from "../components/ThumbnailEditor";
 import { recutClip } from "../services/videoService";
 
 export default function ClipEditor() {
@@ -64,7 +66,9 @@ export default function ClipEditor() {
           </button>
         </div>
       </article>
+
+      <AICommandBar clipId={clipId} />
+      <ThumbnailEditor clipId={clipId} />
     </section>
   );
 }
-
