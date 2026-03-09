@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -7,6 +7,8 @@ import useAuth from "../hooks/useAuth";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import Input from "../components/ui/Input";
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
 function Login() {
   const { login } = useAuth();
@@ -24,10 +26,9 @@ function Login() {
     event.preventDefault();
     setError("");
     setIsLoading(true);
-
     try {
       await login({ email, password });
-      toast.success("Connexion réussie");
+      toast.success("Connexion reussie");
       navigate(from, { replace: true });
     } catch (err) {
       const message = err?.response?.data?.detail || "Connexion impossible";
@@ -49,15 +50,19 @@ function Login() {
         </p>
 
         {error ? (
-          <motion.p
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="error-text"
-            style={{ marginBottom: 10 }}
-          >
+          <motion.p initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="error-text" style={{ marginBottom: 10 }}>
             {error}
           </motion.p>
         ) : null}
+
+        <div className="grid grid-2" style={{ marginBottom: 12 }}>
+          <button type="button" className="ui-btn ui-btn-secondary" onClick={() => { window.location.href = `${API_BASE}/auth/google`; }}>
+            Continuer avec Google
+          </button>
+          <button type="button" className="ui-btn ui-btn-secondary" onClick={() => { window.location.href = `${API_BASE}/auth/github`; }}>
+            Continuer avec GitHub
+          </button>
+        </div>
 
         <form className="form-col" onSubmit={handleSubmit}>
           <Input
@@ -80,13 +85,17 @@ function Login() {
             required
           />
 
+          <Link to="/forgot-password" className="muted" style={{ fontSize: 13 }}>
+            Mot de passe oublie ?
+          </Link>
+
           <Button type="submit" variant="primary" loading={isLoading}>
             {isLoading ? "Connexion en cours" : "Se connecter"}
           </Button>
         </form>
 
         <p className="muted" style={{ marginTop: 14 }}>
-          Pas de compte ? <Link to="/register" className="gradient-text">Créer un compte</Link>
+          Pas de compte ? <Link to="/register" className="gradient-text">Creer un compte</Link>
         </p>
       </Card>
     </section>

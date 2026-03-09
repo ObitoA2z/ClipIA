@@ -5,9 +5,15 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 from typing import Any
 
-from PIL import Image, ImageDraw, ImageFont
+try:
+    from PIL import Image, ImageDraw, ImageFont
+except Exception:  # pragma: no cover
+    Image = None
+    ImageDraw = None
+    ImageFont = None
 
 from utils.helpers import ensure_dir, ffmpeg_binary, run_subprocess
 
@@ -111,6 +117,8 @@ def _safe_filename(text: str) -> str:
 
 
 def _load_font(size: int) -> ImageFont.ImageFont:
+    if ImageFont is None:
+        raise RuntimeError("Pillow non disponible")
     try:
         return ImageFont.truetype("arial.ttf", size=size)
     except Exception:
@@ -126,6 +134,9 @@ def _render_thumbnail(
     logo_path: str | None = None,
     palette: tuple[str, str] = ("#7B61FF", "#FF61DC"),
 ) -> None:
+    if Image is None or ImageDraw is None:
+        shutil.copy2(frame_path, output_path)
+        return
     image = Image.open(frame_path).convert("RGB").resize(size)
     overlay = Image.new("RGBA", size, (0, 0, 0, 0))
     drawer = ImageDraw.Draw(overlay)

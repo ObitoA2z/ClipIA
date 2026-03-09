@@ -15,3 +15,7 @@ class ClipPublic(BaseModel):
     thumbnail_url: str
     resolution: str = "1080x1920"
     format: str = "mp4"
+    virality_score: float | None = None
+    hook_text: str | None = None
+    improvement_tip: str | None = None
+    best_platform: str | None = None

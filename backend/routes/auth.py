@@ -10,6 +10,7 @@ from fastapi.responses import RedirectResponse
 
 from database.connection import find_one, get_record, insert_record, list_records, update_record
 from models.user import (
+    ChangePasswordRequest,
     Disable2FARequest,
     ForgotPasswordRequest,
     LoginRequest,
@@ -19,6 +20,8 @@ from models.user import (
     SessionPublic,
     Setup2FAResponse,
     TokenResponse,
+    UpdatePreferencesRequest,
+    UpdateProfileRequest,
     UserPublic,
     Verify2FARequest,
 )
@@ -33,6 +36,7 @@ from services.auth_security import (
     generate_qr_code_base64,
     generate_totp_secret,
     get_client_ip,
+    get_password_history,
     hash_password,
     hash_token,
     is_pwned_password,
@@ -76,6 +80,11 @@ def _build_user_public(user: dict) -> UserPublic:
         plan=user.get("plan", "free"),
         is_admin=bool(user.get("is_admin", False)),
         two_factor_enabled=bool(user.get("two_factor_enabled", False)),
+        avatar_url=user.get("avatar_url"),
+        bio=user.get("bio"),
+        youtube_url=user.get("youtube_url"),
+        preferences=user.get("preferences") or {},
+        stripe_customer_id=user.get("stripe_customer_id"),
     )
 
 
@@ -115,10 +124,20 @@ def register(request: Request, payload: RegisterRequest = Body(...)) -> TokenRes
         "id": user_id,
         "email": email,
         "full_name": payload.full_name.strip(),
+        "avatar_url": "",
+        "bio": "",
+        "youtube_url": "",
         "password_hash": password_hash,
         "password_history": [password_hash],
         "plan": "free",
         "videos_used_this_month": 0,
+        "preferences": {
+            "language": "fr",
+            "timezone": "Europe/Paris",
+            "preferred_format": "all",
+            "preferred_quality": "1080p",
+            "subtitles_default": True,
+        },
         "totp_secret_encrypted": "",
         "pending_totp_secret_encrypted": encrypt_totp_secret(user_id, totp_secret),
         "two_factor_enabled": False,
@@ -161,6 +180,10 @@ def login(request: Request, payload: LoginRequest = Body(...)) -> TokenResponse:
             metadata={"reason": "invalid_credentials"},
         )
         raise HTTPException(status_code=401, detail="Identifiants invalides")
+    if user.get("is_banned"):
+        raise HTTPException(status_code=403, detail="Compte banni. Contacte le support.")
+    if user.get("is_suspended"):
+        raise HTTPException(status_code=403, detail="Compte suspendu temporairement.")
 
     if bool(user.get("two_factor_enabled")):
         assert_not_blocked("2fa", email)
@@ -218,6 +241,118 @@ def logout(request: Request, authorization: str | None = Header(default=None)) -
 @router.get("/me", response_model=UserPublic)
 def me(current_user: dict = Depends(require_current_user)) -> UserPublic:
     return _build_user_public(current_user)
+
+
+@router.put("/me", response_model=UserPublic)
+def update_me(
+    request: Request,
+    payload: UpdateProfileRequest = Body(...),
+    current_user: dict = Depends(require_current_user),
+) -> UserPublic:
+    updates: dict = {"updated_at": utc_now_iso()}
+    if payload.full_name is not None:
+        full_name = payload.full_name.strip()
+        if len(full_name) < 2:
+            raise HTTPException(status_code=400, detail="Nom complet invalide")
+        updates["full_name"] = full_name
+    if payload.avatar_url is not None:
+        updates["avatar_url"] = payload.avatar_url.strip()
+    if payload.bio is not None:
+        updates["bio"] = payload.bio.strip()
+    if payload.youtube_url is not None:
+        updates["youtube_url"] = payload.youtube_url.strip()
+
+    update_record("users", current_user["id"], updates)
+    refreshed = get_record("users", current_user["id"]) or current_user
+    log_audit(
+        action="auth.profile.updated",
+        success=True,
+        user_id=current_user["id"],
+        request=request,
+    )
+    return _build_user_public(refreshed)
+
+
+@router.post("/change-password")
+def change_password(
+    request: Request,
+    payload: ChangePasswordRequest = Body(...),
+    current_user: dict = Depends(require_current_user),
+) -> dict:
+    user = get_record("users", current_user["id"])
+    if not user:
+        raise HTTPException(status_code=404, detail="Utilisateur introuvable")
+
+    if not verify_password(payload.current_password, user.get("password_hash", "")):
+        raise HTTPException(status_code=401, detail="Mot de passe actuel invalide")
+
+    password_ok, password_error = validate_password_policy(payload.new_password)
+    if not password_ok:
+        raise HTTPException(status_code=400, detail=password_error)
+    if is_pwned_password(payload.new_password):
+        raise HTTPException(status_code=400, detail="Mot de passe compromis (haveibeenpwned).")
+
+    history = get_password_history(user)
+    if password_used_before(payload.new_password, history):
+        raise HTTPException(status_code=400, detail="Tu as deja utilise ce mot de passe.")
+
+    new_hash = hash_password(payload.new_password)
+    update_record(
+        "users",
+        current_user["id"],
+        {
+            "password_hash": new_hash,
+            "password_history": update_password_history(history, new_hash),
+            "updated_at": utc_now_iso(),
+        },
+    )
+    revoke_all_user_sessions(current_user["id"])
+    log_audit(
+        action="auth.password.changed",
+        success=True,
+        user_id=current_user["id"],
+        request=request,
+    )
+    return {"message": "Mot de passe mis a jour, reconnecte-toi."}
+
+
+@router.get("/preferences")
+def get_preferences(current_user: dict = Depends(require_current_user)) -> dict:
+    user = get_record("users", current_user["id"]) or current_user
+    return {"preferences": user.get("preferences") or {}}
+
+
+@router.put("/preferences")
+def update_preferences(
+    request: Request,
+    payload: UpdatePreferencesRequest = Body(...),
+    current_user: dict = Depends(require_current_user),
+) -> dict:
+    user = get_record("users", current_user["id"]) or current_user
+    preferences = dict(user.get("preferences") or {})
+    if payload.language is not None:
+        preferences["language"] = payload.language.strip() or "fr"
+    if payload.timezone is not None:
+        preferences["timezone"] = payload.timezone.strip() or "Europe/Paris"
+    if payload.preferred_format is not None:
+        preferences["preferred_format"] = payload.preferred_format.strip() or "all"
+    if payload.preferred_quality is not None:
+        preferences["preferred_quality"] = payload.preferred_quality.strip() or "1080p"
+    if payload.subtitles_default is not None:
+        preferences["subtitles_default"] = bool(payload.subtitles_default)
+
+    update_record(
+        "users",
+        current_user["id"],
+        {"preferences": preferences, "updated_at": utc_now_iso()},
+    )
+    log_audit(
+        action="auth.preferences.updated",
+        success=True,
+        user_id=current_user["id"],
+        request=request,
+    )
+    return {"message": "Preferences mises a jour", "preferences": preferences}
 
 
 @router.post("/refresh", response_model=TokenResponse)

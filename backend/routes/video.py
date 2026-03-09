@@ -18,6 +18,7 @@ from services.downloader import download_video, get_video_metadata
 from services.formatter import format_vertical
 from services.transcriber import transcribe_audio
 from services.uploader import upload_clips
+from services.virality_scorer import enrich_highlights_with_virality
 from utils.auth import require_current_user
 from utils.helpers import new_id, utc_now_iso
 from utils.rate_limit import limiter
@@ -32,6 +33,15 @@ def _video_or_404(video_id: str, user_id: str) -> dict:
     if not video or video.get("user_id") != user_id:
         raise HTTPException(status_code=404, detail="Video introuvable")
     return video
+
+
+def _with_video_metrics(video: dict) -> dict:
+    clips = [clip for clip in list_records("clips") if clip.get("video_id") == video.get("id")]
+    scores = [float(clip.get("virality_score")) for clip in clips if clip.get("virality_score") is not None]
+    avg_score = round(sum(scores) / len(scores), 2) if scores else None
+    payload = dict(video)
+    payload["avg_virality_score"] = avg_score
+    return payload
 
 
 def _set_video_state(video_id: str, status: str, progress: int, error: str | None = None) -> None:
@@ -67,8 +77,9 @@ async def _process_video(video_id: str, payload: ProcessVideoRequest, user_id: s
             },
         )
 
-        _set_video_state(video_id, "transcribing", 30)
+        _set_video_state(video_id, "extracting", 22)
         audio_path = await asyncio.to_thread(extract_audio, download_result["video_path"])
+        _set_video_state(video_id, "transcribing", 35)
         transcript = await asyncio.to_thread(transcribe_audio, audio_path)
 
         _set_video_state(video_id, "detecting", 55)
@@ -83,6 +94,13 @@ async def _process_video(video_id: str, payload: ProcessVideoRequest, user_id: s
             min_duration=payload.min_duration,
             max_duration=payload.max_duration,
             target_platform=payload.target_platform,
+        )
+        highlights = await asyncio.to_thread(
+            enrich_highlights_with_virality,
+            highlights,
+            total_duration=float(download_result.get("duration_seconds", 0) or 0),
+            target_platform=payload.target_platform,
+            video_title=str(download_result.get("title") or ""),
         )
 
         _set_video_state(video_id, "cutting", 72)
@@ -202,12 +220,12 @@ def list_videos(
     videos = [video for video in list_records("videos") if video.get("user_id") == current_user["id"]]
     videos.sort(key=lambda item: item.get("created_at", ""), reverse=True)
     page = videos[skip : skip + limit]
-    return [VideoStatus(**video) for video in page]
+    return [VideoStatus(**_with_video_metrics(video)) for video in page]
 
 
 @router.get("/{video_id}", response_model=VideoStatus)
 def get_video(video_id: str, current_user: dict = Depends(require_current_user)) -> VideoStatus:
-    return VideoStatus(**_video_or_404(video_id, current_user["id"]))
+    return VideoStatus(**_with_video_metrics(_video_or_404(video_id, current_user["id"])))
 
 
 @router.get("/{video_id}/status")

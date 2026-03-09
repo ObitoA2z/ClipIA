@@ -35,7 +35,15 @@ class VideoStatus(BaseModel):
     youtube_id: str
     title: str
     duration_seconds: int
+    thumbnail_url: str | None = None
+    clip_mode: ClipMode | None = None
+    prompt: str | None = None
+    target_platform: TargetPlatform | None = None
+    layout: ClipLayout | None = None
     status: str
     progress_percent: int
     clips_count: int
+    avg_virality_score: float | None = None
     error_message: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None

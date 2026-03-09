@@ -195,3 +195,67 @@
 âœ… frontend\src\components\AICommandBar.jsx â€” Barre de commandes IA connectee a /ai-commands/apply â€” 12:15
 âœ… frontend\src\components\ThumbnailEditor.jsx â€” UI generation thumbnails (3 variantes) branchee backend â€” 12:15
 âœ… frontend\src\pages\ClipEditor.jsx â€” Integration AICommandBar + ThumbnailEditor dans l'editeur clip â€” 12:15
+? backend\services\virality_scorer.py — Service complet de scoring viralite (8 criteres, Gemini + fallback heuristique) — 12:34
+? backend\database\migrations\008_virality.sql — Migration colonnes virality_score/hook_text/improvement_tip/best_platform — 12:34
+? backend\routes\video.py — Pipeline enrichie avec status extracting + scoring viralite avant decoupe — 12:34
+? backend\models\clip.py — Modele ClipPublic etendu avec champs viralite — 12:34
+? backend\services\uploader.py — Persistance des metadonnees virality/hook/tip/platform dans chaque clip upload — 12:34
+? backend\services\publishing_service.py — Service unifie de publication multi-plateformes pour scheduler/task/routes — 12:34
+? backend\tasks\video_tasks.py — Taches Celery operationnelles (publish, cleanup, track_performance, score_highlights) — 12:34
+? backend\tasks\celery_app.py — Celery beat configure (publication planifiee, cleanup, tracking) — 12:34
+? backend\routes\clips.py — Route download-all ZIP ajoutee + streaming des clips locaux/distants — 12:34
+? backend\routes\stats.py — Endpoint /stats/public avec cache TTL 5 min (local + redis) — 12:34
+? backend\main.py — Route stats branchee dans l'application — 12:34
+? backend\requirements.txt — Dependances manquantes vision/audio/IA ajoutees (opencv, mediapipe, librosa, etc.) — 12:34
+? backend\routes\publishing.py — Publication immediate branchee sur publishing_service central — 12:34
+? frontend\package.json — Dependances UI ajoutees (canvas-confetti, recharts) — 12:34
+? frontend\package-lock.json — Lockfile regenere apres installation dependances — 12:34
+? frontend\src\components\ProcessingStatus.jsx — Fix extracting + confetti reel + timer par etape + highlight etape active — 12:34
+? backend\tests\test_all.py — Suite tests etendue a 29 tests (virality, zip, stats, scheduler) — 12:34
+OK backend/models/user.py -- Ajout schemas update profil/preferences/changement mot de passe -- 13:14
+OK backend/routes/auth.py -- Endpoints /auth/me PUT, /auth/change-password, /auth/preferences + enrichissement UserPublic -- 13:14
+OK backend/models/__init__.py -- Export des nouveaux modeles user -- 13:14
+OK backend/routes/ai_coach.py -- Endpoint /ai-coach/report branche au service AI Coach -- 13:14
+OK backend/routes/content.py -- Endpoint /content-repurpose/{video_id} avec quote cards -- 13:14
+OK backend/main.py -- Branchement routes ai-coach et content-repurpose -- 13:14
+OK backend/routes/payment.py -- Endpoint billing portal ajoute -- 13:14
+OK backend/models/video.py -- VideoStatus enrichi (thumbnail, metadata, avg_virality_score) -- 13:14
+OK backend/routes/video.py -- Calcul avg_virality_score par video + mapping sortie -- 13:14
+OK backend/routes/admin.py -- Dashboard admin et actions users (plan/suspend/ban/email/activity) -- 13:14
+OK backend/middleware/security.py -- Fallback sanitize si bleach indisponible -- 13:14
+OK backend/services/auth_security.py -- Fallback pyotp/qrcode pour environnements minimaux -- 13:14
+OK backend/services/thumbnail_generator.py -- Fallback Pillow absent pour eviter crash import -- 13:14
+OK backend/services/content_repurposer.py -- Fallback Pillow absent pour quote cards -- 13:14
+OK backend/tests/test_all.py -- Extension suite a 32 tests (profil, AI Coach, Content Hub) -- 13:14
+OK frontend/src/components/Sidebar.jsx -- Nouvelle navigation desktop auth -- 13:14
+OK frontend/src/components/BottomNav.jsx -- Nouvelle navigation mobile auth -- 13:14
+OK frontend/src/components/CommandPalette.jsx -- Command palette Ctrl+K -- 13:14
+OK frontend/src/App.jsx -- Layout auth complet (sidebar/bottom-nav/cursor/palette) + nouvelles routes -- 13:14
+OK frontend/src/styles/globals.css -- Classes design ajoutees (grid-4, marquee, faq, compare table, content preview) -- 13:14
+OK frontend/src/pages/Home.jsx -- Sections comparatif/FAQ/logos/compteur live branche /stats/public -- 13:14
+OK frontend/src/pages/Dashboard.jsx -- Refonte stats/filtres/recherche/status cards/videos -- 13:14
+OK frontend/src/components/ClipCard.jsx -- Virality badge + preview hover + vrai telechargement progress + share + layouts -- 13:14
+OK frontend/src/pages/VideoDetail.jsx -- Hero video + tri/filtres + download-all zip -- 13:14
+OK frontend/src/pages/Login.jsx -- OAuth buttons + forgot password -- 13:14
+OK frontend/src/pages/Register.jsx -- OAuth buttons + password strength -- 13:14
+OK frontend/src/pages/Pricing.jsx -- Features plans + toggle annuel + redirection checkout + FAQ -- 13:14
+OK frontend/src/pages/Profile.jsx -- Formulaires complets + 2FA QR + sessions + RGPD + billing portal -- 13:14
+OK frontend/src/pages/ForgotPassword.jsx -- Nouvelle page reset request -- 13:14
+OK frontend/src/pages/ResetPassword.jsx -- Nouvelle page reset token -- 13:14
+OK frontend/src/pages/AICoachPage.jsx -- Nouvelle page AI Coach connectee API -- 13:14
+OK frontend/src/pages/ContentHub.jsx -- Nouvelle page Content Hub connectee API -- 13:14
+OK frontend/src/pages/admin/AdminDashboard.jsx -- Graphiques Recharts + feed colore -- 13:14
+OK frontend/src/pages/admin/AdminUsers.jsx -- Actions admin users + pagination + export CSV -- 13:14
+OK frontend/src/services/authService.js -- Services auth profil/preferences/2FA/sessions/reset ajoutes -- 13:14
+OK frontend/src/services/paymentService.js -- Service billing portal ajoute -- 13:14
+OK frontend/src/services/videoService.js -- Service downloadAllClips ajoute -- 13:14
+OK frontend/src/services/api.js -- Support VITE_API_URL ajoute -- 13:14
+OK frontend/src/context/AuthContext.jsx -- Ajout refreshUser + setUser expose -- 13:14
+OK frontend/src/components/Navbar.jsx -- Navigation simplifiee et badge plan corrige -- 13:14
+OK frontend/src/components/VideoInput.jsx -- Recriture propre des modes + options avancees -- 13:14
+OK mobile/src/services/api.ts -- Connexion API reelle + stockage tokens AsyncStorage -- 13:14
+OK mobile/src/screens/LoginScreen.tsx -- Auth mobile connectee backend -- 13:14
+OK mobile/src/screens/DashboardScreen.tsx -- submit reel + polling status API -- 13:14
+OK mobile/package.json -- Ajout dependency AsyncStorage -- 13:14
+OK backend/tests/test_all.py -- 32/32 tests passants -- 13:14
+OK frontend build -- npm run build succes -- 13:14

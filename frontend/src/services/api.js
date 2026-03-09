@@ -2,7 +2,7 @@
 
 const ACCESS_TOKEN_KEY = "clipai_token";
 const REFRESH_TOKEN_KEY = "clipai_refresh_token";
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
 let isRefreshing = false;
 let refreshQueue = [];

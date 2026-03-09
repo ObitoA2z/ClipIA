@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -7,6 +7,17 @@ import useAuth from "../hooks/useAuth";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import Input from "../components/ui/Input";
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+
+function getPasswordChecks(password) {
+  return {
+    length: password.length >= 8,
+    uppercase: /[A-Z]/.test(password),
+    digit: /\d/.test(password),
+    special: /[^A-Za-z0-9]/.test(password),
+  };
+}
 
 function Register() {
   const { register } = useAuth();
@@ -18,14 +29,17 @@ function Register() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  const checks = useMemo(() => getPasswordChecks(password), [password]);
+  const strength = Object.values(checks).filter(Boolean).length;
+  const strengthPercent = (strength / 4) * 100;
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError("");
     setIsLoading(true);
-
     try {
       await register({ full_name: fullName, email, password });
-      toast.success("Compte créé avec succès");
+      toast.success("Compte cree avec succes");
       navigate("/dashboard", { replace: true });
     } catch (err) {
       const message = err?.response?.data?.detail || "Inscription impossible";
@@ -40,22 +54,26 @@ function Register() {
     <section className="auth-shell">
       <Card className="auth-card">
         <h2 className="section-title" style={{ fontSize: "2rem" }}>
-          Crée ton compte
+          Cree ton compte
         </h2>
         <p className="muted" style={{ marginBottom: 16 }}>
           Lance ton premier traitement en moins de 2 minutes.
         </p>
 
         {error ? (
-          <motion.p
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="error-text"
-            style={{ marginBottom: 10 }}
-          >
+          <motion.p initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="error-text" style={{ marginBottom: 10 }}>
             {error}
           </motion.p>
         ) : null}
+
+        <div className="grid grid-2" style={{ marginBottom: 12 }}>
+          <button type="button" className="ui-btn ui-btn-secondary" onClick={() => { window.location.href = `${API_BASE}/auth/google`; }}>
+            Continuer avec Google
+          </button>
+          <button type="button" className="ui-btn ui-btn-secondary" onClick={() => { window.location.href = `${API_BASE}/auth/github`; }}>
+            Continuer avec GitHub
+          </button>
+        </div>
 
         <form className="form-col" onSubmit={handleSubmit}>
           <Input
@@ -83,17 +101,26 @@ function Register() {
             type="password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            placeholder="Minimum 6 caractères"
+            placeholder="Minimum 8 caracteres"
             required
           />
 
+          <div>
+            <div className="progress-track">
+              <div className="progress-bar" style={{ width: `${strengthPercent}%` }} />
+            </div>
+            <p className="muted" style={{ marginTop: 8, fontSize: 13 }}>
+              Force: {strength}/4 • 8+ caracteres, 1 majuscule, 1 chiffre, 1 special.
+            </p>
+          </div>
+
           <Button type="submit" variant="primary" loading={isLoading}>
-            {isLoading ? "Création en cours" : "Créer mon compte"}
+            {isLoading ? "Creation en cours" : "Creer mon compte"}
           </Button>
         </form>
 
         <p className="muted" style={{ marginTop: 14 }}>
-          Déjà inscrit ? <Link to="/login" className="gradient-text">Se connecter</Link>
+          Deja inscrit ? <Link to="/login" className="gradient-text">Se connecter</Link>
         </p>
       </Card>
     </section>

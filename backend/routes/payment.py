@@ -61,6 +61,15 @@ def payment_status(current_user: dict = Depends(require_current_user)) -> dict:
     return {"plan": "free", "status": "active"}
 
 
+@router.get("/billing-portal")
+def billing_portal(current_user: dict = Depends(require_current_user)) -> dict:
+    _ = current_user
+    base = os.getenv("STRIPE_BILLING_PORTAL_URL", "").strip()
+    if base:
+        return {"url": base}
+    return {"url": "https://billing.clipai.local/portal"}
+
+
 @router.post("/webhook")
 async def stripe_webhook(
     request: Request,

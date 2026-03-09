@@ -3,6 +3,7 @@
 
 from .clip import ClipPublic
 from .user import (
+    ChangePasswordRequest,
     Disable2FARequest,
     ForgotPasswordRequest,
     LoginRequest,
@@ -12,6 +13,8 @@ from .user import (
     SessionPublic,
     Setup2FAResponse,
     TokenResponse,
+    UpdatePreferencesRequest,
+    UpdateProfileRequest,
     UserPublic,
     Verify2FARequest,
 )
@@ -19,6 +22,7 @@ from .video import ProcessVideoRequest, VideoStatus
 
 __all__ = [
     "ClipPublic",
+    "ChangePasswordRequest",
     "Disable2FARequest",
     "ForgotPasswordRequest",
     "LoginRequest",
@@ -28,6 +32,8 @@ __all__ = [
     "SessionPublic",
     "Setup2FAResponse",
     "TokenResponse",
+    "UpdatePreferencesRequest",
+    "UpdateProfileRequest",
     "UserPublic",
     "Verify2FARequest",
     "ProcessVideoRequest",

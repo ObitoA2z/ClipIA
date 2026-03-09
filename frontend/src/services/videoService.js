@@ -39,6 +39,11 @@ export async function getVideoClips(videoId) {
   return data;
 }
 
+export async function downloadAllClips(videoId) {
+  const response = await api.get(`/clips/${videoId}/download-all`, { responseType: "blob" });
+  return response.data;
+}
+
 export async function deleteVideo(videoId) {
   const { data } = await api.delete(`/video/${videoId}`);
   return data;

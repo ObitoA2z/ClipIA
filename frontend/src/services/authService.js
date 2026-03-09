@@ -30,3 +30,58 @@ export async function logoutUser(token) {
   );
   return data;
 }
+
+export async function forgotPassword(email) {
+  const { data } = await api.post("/auth/forgot-password", { email });
+  return data;
+}
+
+export async function resetPassword(token, newPassword) {
+  const { data } = await api.post("/auth/reset-password", { token, new_password: newPassword });
+  return data;
+}
+
+export async function updateProfile(payload) {
+  const { data } = await api.put("/auth/me", payload);
+  return data;
+}
+
+export async function changePassword(payload) {
+  const { data } = await api.post("/auth/change-password", payload);
+  return data;
+}
+
+export async function getPreferences() {
+  const { data } = await api.get("/auth/preferences");
+  return data;
+}
+
+export async function updatePreferences(payload) {
+  const { data } = await api.put("/auth/preferences", payload);
+  return data;
+}
+
+export async function listSessions() {
+  const { data } = await api.get("/auth/sessions");
+  return data;
+}
+
+export async function revokeSession(sessionId) {
+  const { data } = await api.delete(`/auth/sessions/${sessionId}`);
+  return data;
+}
+
+export async function setupTwoFactor() {
+  const { data } = await api.get("/auth/2fa/setup");
+  return data;
+}
+
+export async function enableTwoFactor(code) {
+  const { data } = await api.post("/auth/2fa/enable", { code });
+  return data;
+}
+
+export async function disableTwoFactor(code) {
+  const { data } = await api.post("/auth/2fa/disable", { code });
+  return data;
+}

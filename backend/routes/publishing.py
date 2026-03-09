@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 from database.connection import get_record, insert_record, list_records, update_record
 from services.encryption import decrypt_text, encrypt_text
+from services.publishing_service import publish_scheduled_post
 from utils.auth import require_current_user
 from utils.helpers import new_id, utc_now_iso
 
@@ -116,16 +117,22 @@ def publish_now(payload: PublishNowRequest, current_user: dict = Depends(require
     if not account:
         raise HTTPException(status_code=400, detail=f"Compte {payload.platform} non connecte")
 
-    # Placeholder stable: token decrypt valide + URL simulee deterministic.
     decrypt_text(account["access_token_encrypted"], context=f"social:{current_user['id']}:{payload.platform}")
-    post_id = f"{payload.platform}_{new_id()[:8]}"
-    published_url = f"https://{payload.platform}.com/post/{post_id}"
+    result = publish_scheduled_post(
+        {
+            "user_id": current_user["id"],
+            "platform": payload.platform,
+            "clip_id": payload.clip_id,
+        }
+    )
+    if not result.get("ok"):
+        raise HTTPException(status_code=400, detail=str(result.get("error") or "publish_failed"))
 
     return {
         "status": "published",
         "platform": payload.platform,
-        "post_id": post_id,
-        "url": published_url,
+        "post_id": result.get("post_id"),
+        "url": result.get("url"),
         "title": payload.title,
         "hashtags": payload.hashtags,
     }

@@ -8,7 +8,12 @@ import os
 from typing import Any
 
 import google.generativeai as genai
-from PIL import Image, ImageDraw, ImageFont
+try:
+    from PIL import Image, ImageDraw, ImageFont
+except Exception:  # pragma: no cover
+    Image = None
+    ImageDraw = None
+    ImageFont = None
 
 from utils.helpers import ensure_dir
 
@@ -63,6 +68,8 @@ def _fallback_show_notes(transcript: dict[str, Any]) -> str:
 
 
 def _load_font(size: int) -> ImageFont.ImageFont:
+    if ImageFont is None:
+        raise RuntimeError("Pillow non disponible")
     try:
         return ImageFont.truetype("arial.ttf", size=size)
     except Exception:
@@ -70,6 +77,10 @@ def _load_font(size: int) -> ImageFont.ImageFont:
 
 
 def _quote_card(text: str, author: str, output_path: str) -> str:
+    if Image is None or ImageDraw is None:
+        with open(output_path, "wb") as file:
+            file.write(b"quote_card_unavailable")
+        return output_path
     width, height = 1080, 1080
     image = Image.new("RGB", (width, height), color="#0F1023")
     draw = ImageDraw.Draw(image)

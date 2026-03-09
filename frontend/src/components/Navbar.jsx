@@ -46,40 +46,10 @@ function Navbar() {
               Dashboard
             </NavLink>
           ) : null}
-          {isAuthenticated ? (
-            <NavLink to="/profile" className="nav-link">
-              Profil
-            </NavLink>
-          ) : null}
-          {isAuthenticated ? (
-            <NavLink to="/analytics" className="nav-link">
-              Stats
-            </NavLink>
-          ) : null}
-          {isAuthenticated ? (
-            <NavLink to="/scheduler" className="nav-link">
-              Planner
-            </NavLink>
-          ) : null}
-          {isAuthenticated ? (
-            <NavLink to="/team" className="nav-link">
-              Team
-            </NavLink>
-          ) : null}
-          {isAuthenticated ? (
-            <NavLink to="/referral" className="nav-link">
-              Referral
-            </NavLink>
-          ) : null}
-          {isAuthenticated && user?.is_admin ? (
-            <NavLink to="/admin" className="nav-link">
-              Admin
-            </NavLink>
-          ) : null}
         </nav>
 
         <div className="inline-actions" style={{ alignItems: "center" }}>
-          <Badge variant="primary">Plan {plan === "free" ? "Free" : "Pro"}</Badge>
+          <Badge variant="primary">Plan {plan === "business" ? "Business" : plan === "free" ? "Free" : "Pro"}</Badge>
           {isAuthenticated ? (
             <>
               <span className="muted" style={{ maxWidth: 170, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -146,7 +116,7 @@ function Navbar() {
                   Planner
                 </NavLink>
               ) : null}
-              {isAuthenticated ? (
+              {isAuthenticated && user?.plan === "business" ? (
                 <NavLink to="/team" onClick={() => setMenuOpen(false)}>
                   Team
                 </NavLink>

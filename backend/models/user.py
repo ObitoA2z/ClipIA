@@ -93,4 +93,34 @@ class UserPublic(BaseModel):
     plan: str = "free"
     is_admin: bool = False
     two_factor_enabled: bool = False
+    avatar_url: str | None = None
+    bio: str | None = None
+    youtube_url: str | None = None
+    preferences: dict | None = None
+    stripe_customer_id: str | None = None
 
+
+class UpdateProfileRequest(BaseModel):
+    full_name: str | None = Field(default=None, min_length=2, max_length=120)
+    avatar_url: str | None = Field(default=None, max_length=500)
+    bio: str | None = Field(default=None, max_length=400)
+    youtube_url: str | None = Field(default=None, max_length=500)
+
+    model_config = {"extra": "forbid"}
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(min_length=8, max_length=128)
+    new_password: str = Field(min_length=8, max_length=128)
+
+    model_config = {"extra": "forbid"}
+
+
+class UpdatePreferencesRequest(BaseModel):
+    language: str | None = Field(default=None, max_length=10)
+    timezone: str | None = Field(default=None, max_length=60)
+    preferred_format: str | None = Field(default=None, max_length=20)
+    preferred_quality: str | None = Field(default=None, max_length=20)
+    subtitles_default: bool | None = None
+
+    model_config = {"extra": "forbid"}

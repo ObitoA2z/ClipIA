@@ -1,4 +1,4 @@
-﻿import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -8,62 +8,64 @@ import VideoInput from "../components/VideoInput";
 import Card from "../components/ui/Card";
 import useAuth from "../hooks/useAuth";
 import useVideo from "../hooks/useVideo";
-import { askNotificationPermission } from "../pwa/registerSW";
-import { getVapidPublicKey, subscribePush } from "../services/notificationService";
 
-function urlBase64ToUint8Array(base64String) {
-  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
-  const rawData = atob(base64);
-  return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)));
+const FILTERS = [
+  { key: "all", label: "Tout" },
+  { key: "processing", label: "En cours" },
+  { key: "done", label: "Terminees" },
+  { key: "error", label: "Erreurs" },
+];
+
+function statusBadge(status) {
+  const current = String(status || "pending").toLowerCase();
+  if (current === "done") {
+    return { label: "Done", className: "score-badge score-good" };
+  }
+  if (current === "error") {
+    return { label: "Erreur", className: "score-badge score-low" };
+  }
+  return { label: "Traitement", className: "score-badge score-viral" };
 }
 
 function Dashboard() {
   const { user } = useAuth();
   const { videosQuery, processMutation } = useVideo();
+  const [filter, setFilter] = useState("all");
+  const [search, setSearch] = useState("");
 
   const videos = videosQuery.data || [];
-  const currentVideo = videos[0] || null;
+  const currentVideo = videos.find((video) => video.status !== "done" && video.status !== "error") || videos[0] || null;
 
   const stats = useMemo(() => {
     const done = videos.filter((video) => video.status === "done").length;
     const processing = videos.filter((video) => video.status !== "done" && video.status !== "error").length;
-    const clips = videos.reduce((sum, item) => sum + (item.clips_count || 0), 0);
-    return { done, processing, clips };
+    const clips = videos.reduce((sum, item) => sum + Number(item.clips_count || 0), 0);
+    const hoursSaved = (clips * 0.25).toFixed(1);
+    return { done, processing, clips, hoursSaved };
   }, [videos]);
 
-  const handleSubmit = async (youtubeUrl) => {
+  const filteredVideos = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return videos.filter((video) => {
+      const matchesFilter =
+        filter === "all" ||
+        (filter === "processing" && video.status !== "done" && video.status !== "error") ||
+        (filter === "done" && video.status === "done") ||
+        (filter === "error" && video.status === "error");
+      const matchesSearch =
+        !term ||
+        String(video.title || "").toLowerCase().includes(term) ||
+        String(video.youtube_id || "").toLowerCase().includes(term);
+      return matchesFilter && matchesSearch;
+    });
+  }, [filter, search, videos]);
+
+  const handleSubmit = async (payload) => {
     try {
-      await processMutation.mutateAsync(youtubeUrl);
-      toast.success("Pipeline lancé avec succès");
+      await processMutation.mutateAsync(payload);
+      toast.success("Pipeline lance avec succes");
     } catch (error) {
       toast.error(error?.response?.data?.detail || "Erreur pendant le lancement du traitement");
-    }
-  };
-
-  const handleEnablePush = async () => {
-    if (!("serviceWorker" in navigator)) {
-      toast.error("Service Worker indisponible sur ce navigateur");
-      return;
-    }
-
-    const permission = await askNotificationPermission();
-    if (permission !== "granted") {
-      toast.error("Permission notifications refusée");
-      return;
-    }
-
-    try {
-      const registration = await navigator.serviceWorker.ready;
-      const publicKey = await getVapidPublicKey();
-      const subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(publicKey),
-      });
-      await subscribePush(subscription.toJSON());
-      toast.success("Notifications push activées");
-    } catch (error) {
-      toast.error(error?.response?.data?.detail || "Impossible d'activer les notifications");
     }
   };
 
@@ -71,30 +73,36 @@ function Dashboard() {
     <section className="page">
       <Card>
         <h2 className="section-title" style={{ fontSize: "2rem" }}>
-          Bonjour {user?.full_name || "créateur"} 👋
+          Bonjour {user?.full_name || "createur"} 👋
         </h2>
-        <p className="muted">Ton studio ClipAI est prêt. Lance un nouveau traitement ci-dessous.</p>
+        <p className="muted">Ton studio ClipAI est pret. Lance un nouveau traitement ci-dessous.</p>
 
-        <div className="grid grid-3" style={{ marginTop: 16 }}>
-          {[{ label: "Vidéos traitées", value: stats.done }, { label: "En cours", value: stats.processing }, { label: "Clips générés", value: stats.clips }].map((item) => (
+        <div className="grid grid-4" style={{ marginTop: 16 }}>
+          {[
+            { label: "Videos traitees", value: stats.done },
+            { label: "En cours", value: stats.processing },
+            { label: "Clips generes", value: stats.clips },
+            { label: "Heures economisees", value: `${stats.hoursSaved}h` },
+          ].map((item, index) => (
             <motion.div
               key={item.label}
               className="ui-card"
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.06 }}
             >
               <p className="caption">{item.label}</p>
               <p style={{ fontSize: 32, fontWeight: 700 }}>{item.value}</p>
             </motion.div>
           ))}
         </div>
-
-        <div style={{ marginTop: 16 }}>
-          <button type="button" className="ui-btn ui-btn-secondary" onClick={handleEnablePush}>
-            Activer les notifications push
-          </button>
-        </div>
       </Card>
+
+      {stats.processing > 0 ? (
+        <div className="ui-card" style={{ borderColor: "var(--border-hover)", animation: "glowPulse 2.2s ease infinite" }}>
+          🔄 {stats.processing} traitement(s) en cours
+        </div>
+      ) : null}
 
       <VideoInput isLoading={processMutation.isPending} onSubmit={handleSubmit} />
 
@@ -102,8 +110,30 @@ function Dashboard() {
 
       <Card>
         <div className="inline-actions" style={{ justifyContent: "space-between", alignItems: "center" }}>
-          <h3>Vidéos récentes</h3>
-          <p className="muted">{videos.length} élément(s)</p>
+          <h3>Videos recentes</h3>
+          <p className="muted">{filteredVideos.length} element(s)</p>
+        </div>
+
+        <div className="inline-actions" style={{ marginTop: 12, justifyContent: "space-between", alignItems: "center" }}>
+          <div className="inline-actions">
+            {FILTERS.map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                className={`ui-btn ${filter === item.key ? "ui-btn-primary" : "ui-btn-secondary"}`}
+                onClick={() => setFilter(item.key)}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+          <input
+            className="ui-input"
+            style={{ width: 280 }}
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Rechercher une video..."
+          />
         </div>
 
         {videosQuery.isLoading ? (
@@ -114,41 +144,54 @@ function Dashboard() {
           </div>
         ) : null}
 
-        {!videosQuery.isLoading && videos.length ? (
+        {!videosQuery.isLoading && filteredVideos.length ? (
           <div className="grid grid-2" style={{ marginTop: 12 }}>
-            {videos.map((video) => (
-              <motion.article key={video.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-                <Card>
-                  <div className="inline-actions" style={{ justifyContent: "space-between", alignItems: "start" }}>
-                    <div>
-                      <h4>{video.title}</h4>
-                      <p className="muted" style={{ fontSize: 14 }}>
-                        {video.status} • {video.progress_percent}% • {video.clips_count} clips
-                      </p>
+            {filteredVideos.map((video) => {
+              const badge = statusBadge(video.status);
+              return (
+                <motion.article key={video.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+                  <Card className="video-card">
+                    <div className="video-thumb">
+                      {video.thumbnail_url ? (
+                        <img
+                          src={video.thumbnail_url}
+                          alt={video.title}
+                          loading="lazy"
+                          style={{ width: "100%", borderRadius: 12, objectFit: "cover", aspectRatio: "16/9" }}
+                        />
+                      ) : (
+                        <div className="skeleton" style={{ height: 120 }} />
+                      )}
                     </div>
-                    {video.thumbnail_url ? (
-                      <img
-                        src={video.thumbnail_url}
-                        alt={video.title}
-                        loading="lazy"
-                        style={{ width: 120, borderRadius: 10, border: "1px solid var(--border)" }}
-                      />
-                    ) : null}
-                  </div>
-                  <Link to={`/video/${video.id}`} style={{ marginTop: 10, display: "inline-flex" }}>
-                    <button type="button" className="ui-btn ui-btn-secondary">
-                      Voir les clips
-                    </button>
-                  </Link>
-                </Card>
-              </motion.article>
-            ))}
+                    <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
+                      <div className="inline-actions" style={{ justifyContent: "space-between", alignItems: "center" }}>
+                        <h4 style={{ maxWidth: "80%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {video.title || "Video sans titre"}
+                        </h4>
+                        <span className={badge.className}>{badge.label}</span>
+                      </div>
+                      <p className="muted" style={{ fontSize: 14 }}>
+                        {video.progress_percent}% • {video.clips_count || 0} clips
+                      </p>
+                      <p className="muted" style={{ fontSize: 13 }}>
+                        Score moyen: {video.avg_virality_score ? `${video.avg_virality_score}/100` : "--"}
+                      </p>
+                      <Link to={`/video/${video.id}`} className="video-card-cta">
+                        <button type="button" className="ui-btn ui-btn-secondary">
+                          Voir les clips
+                        </button>
+                      </Link>
+                    </div>
+                  </Card>
+                </motion.article>
+              );
+            })}
           </div>
         ) : null}
 
-        {!videosQuery.isLoading && videos.length === 0 ? (
+        {!videosQuery.isLoading && filteredVideos.length === 0 ? (
           <p className="muted" style={{ marginTop: 10 }}>
-            Aucune vidéo pour le moment. Colle ton premier lien YouTube ci-dessus.
+            Aucune video pour le filtre actuel.
           </p>
         ) : null}
       </Card>

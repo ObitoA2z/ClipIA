@@ -36,6 +36,16 @@ export function AuthProvider({ children }) {
       });
   }, [token, user]);
 
+  const refreshUser = async () => {
+    if (!token) {
+      return null;
+    }
+    const profile = await meUser(token);
+    localStorage.setItem("clipai_user", JSON.stringify(profile));
+    setUser(profile);
+    return profile;
+  };
+
   const login = async ({ email, password }) => {
     const data = await loginUser({ email, password });
     setStoredTokens(data);
@@ -69,10 +79,10 @@ export function AuthProvider({ children }) {
       // ignore logout API errors and clear local state anyway
     } finally {
       clearStoredTokens();
-      localStorage.removeItem("clipai_user");
-      setToken("");
-      setRefreshToken("");
-      setUser(null);
+        localStorage.removeItem("clipai_user");
+        setToken("");
+        setRefreshToken("");
+        setUser(null);
     }
   };
 
@@ -85,6 +95,8 @@ export function AuthProvider({ children }) {
       login,
       register,
       logout,
+      refreshUser,
+      setUser,
     }),
     [token, refreshToken, user]
   );

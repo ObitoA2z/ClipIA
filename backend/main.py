@@ -22,9 +22,11 @@ from supabase import create_client
 from middleware.security import apply_security_middleware
 from routes.admin import router as admin_router
 from routes.ai_commands import router as ai_commands_router
+from routes.ai_coach import router as ai_coach_router
 from routes.auth import router as auth_router
 from routes.brand import router as brand_router
 from routes.clips import router as clips_router
+from routes.content import router as content_router
 from routes.feedback import router as feedback_router
 from routes.gdpr import router as gdpr_router
 from routes.notifications import router as notifications_router
@@ -32,6 +34,7 @@ from routes.payment import router as payment_router
 from routes.publishing import router as publishing_router
 from routes.referral import router as referral_router
 from routes.scheduler import router as scheduler_router
+from routes.stats import router as stats_router
 from routes.teams import router as teams_router
 from routes.video import router as video_router
 from utils.helpers import ensure_dir, ffmpeg_binary, resolve_temp_dir, run_subprocess
@@ -125,6 +128,7 @@ app.mount("/media", StaticFiles(directory=media_dir), name="media")
 
 app.include_router(auth_router)
 app.include_router(ai_commands_router)
+app.include_router(ai_coach_router)
 app.include_router(video_router)
 app.include_router(clips_router)
 app.include_router(brand_router)
@@ -137,6 +141,8 @@ app.include_router(referral_router)
 app.include_router(scheduler_router)
 app.include_router(feedback_router)
 app.include_router(teams_router)
+app.include_router(stats_router)
+app.include_router(content_router)
 
 
 @app.on_event("startup")

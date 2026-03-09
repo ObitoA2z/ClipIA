@@ -11,10 +11,10 @@ const placeholders = [
 ];
 
 const clipModes = [
-  { id: "talking", label: "ðŸŽ™ Talking" },
-  { id: "visual", label: "ðŸ“¹ Visual" },
-  { id: "energy", label: "âš¡ Energy" },
-  { id: "prompt", label: "ðŸ” Prompt" },
+  { id: "talking", label: "🎙 Talking" },
+  { id: "visual", label: "📹 Visual" },
+  { id: "energy", label: "⚡ Energy" },
+  { id: "prompt", label: "🔍 Prompt" },
 ];
 
 function extractVideoId(url) {
@@ -51,7 +51,6 @@ function VideoInput({ isLoading, onSubmit }) {
     if (!youtubeUrl.trim()) {
       return;
     }
-
     const payload = {
       youtube_url: youtubeUrl.trim(),
       clip_mode: clipMode,
@@ -62,7 +61,6 @@ function VideoInput({ isLoading, onSubmit }) {
       target_platform: targetPlatform,
       layout,
     };
-
     onSubmit(payload);
   };
 
@@ -84,16 +82,8 @@ function VideoInput({ isLoading, onSubmit }) {
           <button
             key={mode.id}
             type="button"
-            className="ui-btn ui-btn-secondary"
+            className={`ui-btn ${clipMode === mode.id ? "ui-btn-primary" : "ui-btn-secondary"}`}
             onClick={() => setClipMode(mode.id)}
-            style={
-              clipMode === mode.id
-                ? {
-                    borderColor: "var(--primary)",
-                    boxShadow: "0 0 0 2px rgba(99,102,241,0.25)",
-                  }
-                : undefined
-            }
           >
             {mode.label}
           </button>
@@ -158,12 +148,7 @@ function VideoInput({ isLoading, onSubmit }) {
           />
           <label htmlFor="layout" style={{ display: "grid", gap: 8 }}>
             <span className="muted">Layout video</span>
-            <select
-              id="layout"
-              className="ui-input"
-              value={layout}
-              onChange={(event) => setLayout(event.target.value)}
-            >
+            <select id="layout" className="ui-input" value={layout} onChange={(event) => setLayout(event.target.value)}>
               <option value="centered">Centered tracking</option>
               <option value="blurred">Blurred background</option>
               <option value="split">Split screen</option>
@@ -183,9 +168,7 @@ function VideoInput({ isLoading, onSubmit }) {
 
       {previewUrl ? (
         <div className="ui-card" style={{ padding: 10 }}>
-          <p className="caption" style={{ marginBottom: 8 }}>
-            Apercu miniature detectee
-          </p>
+          <p className="caption" style={{ marginBottom: 8 }}>Apercu miniature detectee</p>
           <img
             src={previewUrl}
             alt="Apercu YouTube"

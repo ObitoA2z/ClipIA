@@ -8,6 +8,13 @@ pydantic-settings==2.10.1
 yt-dlp==2025.9.26
 Pillow==11.3.0
 requests==2.32.5
+opencv-python-headless==4.8.1.78
+mediapipe==0.10.7
+librosa==0.10.1
+noisereduce==3.0.2
+pydub==0.25.1
+pytrends==4.9.2
+backgroundremover==0.2.9
 
 # AI providers
 groq==0.31.0

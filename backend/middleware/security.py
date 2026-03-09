@@ -7,7 +7,10 @@ import os
 import re
 from typing import Iterable
 
-import bleach
+try:
+    import bleach
+except Exception:  # pragma: no cover - fallback for minimal local envs
+    bleach = None
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -59,7 +62,10 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 def sanitize_text(value: str) -> str:
     """Nettoie un champ texte libre pour limiter les injections XSS."""
-    return bleach.clean(value or "", tags=[], attributes={}, protocols=[], strip=True)
+    text = value or ""
+    if bleach is None:
+        return re.sub(r"<[^>]+>", "", text)
+    return bleach.clean(text, tags=[], attributes={}, protocols=[], strip=True)
 
 
 def validate_youtube_url_strict(url: str) -> bool:

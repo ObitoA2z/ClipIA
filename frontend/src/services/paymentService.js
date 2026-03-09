@@ -9,3 +9,8 @@ export async function getPaymentStatus() {
   const { data } = await api.get("/payment/status");
   return data;
 }
+
+export async function getBillingPortal() {
+  const { data } = await api.get("/payment/billing-portal");
+  return data;
+}
