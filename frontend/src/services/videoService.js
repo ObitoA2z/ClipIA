@@ -53,3 +53,8 @@ export async function recutClip(clipId, { start, end }) {
   const { data } = await api.post(`/clips/${clipId}/recut`, { start, end });
   return data;
 }
+
+export async function getPipelineStats() {
+  const { data } = await api.get("/stats/pipeline");
+  return data;
+}

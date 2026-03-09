@@ -1,10 +1,12 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
 
 import ProcessingStatus from "../components/ProcessingStatus";
 import VideoInput from "../components/VideoInput";
+import { getPipelineStats } from "../services/videoService";
 import Card from "../components/ui/Card";
 import useAuth from "../hooks/useAuth";
 import useVideo from "../hooks/useVideo";
@@ -33,6 +35,11 @@ function Dashboard() {
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [livePipelineStatus, setLivePipelineStatus] = useState(null);
+  const pipelineStatsQuery = useQuery({
+    queryKey: ["stats", "pipeline"],
+    queryFn: getPipelineStats,
+    refetchInterval: 5000,
+  });
 
   const videos = videosQuery.data || [];
   const currentVideo = videos.find((video) => video.status !== "done" && video.status !== "error") || videos[0] || null;
@@ -112,6 +119,8 @@ function Dashboard() {
     });
   }, [filter, search, videos]);
 
+  const pipelineStats = pipelineStatsQuery.data || null;
+
   const handleSubmit = async (payload) => {
     try {
       await processMutation.mutateAsync(payload);
@@ -180,6 +189,33 @@ function Dashboard() {
         <div className="ui-card" style={{ borderColor: "var(--border-hover)", animation: "glowPulse 2.2s ease infinite" }}>
           🔄 {stats.processing} traitement(s) en cours
         </div>
+      ) : null}
+
+      {pipelineStats ? (
+        <Card>
+          <div className="inline-actions" style={{ justifyContent: "space-between", alignItems: "center" }}>
+            <h3>Etat du pipeline</h3>
+            <span className="muted">{pipelineStats.total_videos || 0} video(s) total</span>
+          </div>
+          <div className="grid grid-4" style={{ marginTop: 12 }}>
+            <div className="ui-card" style={{ padding: 14 }}>
+              <p className="caption">Actifs</p>
+              <p style={{ fontSize: 26, fontWeight: 700 }}>{pipelineStats.processing_active ?? 0}</p>
+            </div>
+            <div className="ui-card" style={{ padding: 14 }}>
+              <p className="caption">Succes</p>
+              <p style={{ fontSize: 26, fontWeight: 700 }}>{pipelineStats.success_rate_percent ?? "--"}%</p>
+            </div>
+            <div className="ui-card" style={{ padding: 14 }}>
+              <p className="caption">Done</p>
+              <p style={{ fontSize: 26, fontWeight: 700 }}>{pipelineStats.done_count ?? 0}</p>
+            </div>
+            <div className="ui-card" style={{ padding: 14 }}>
+              <p className="caption">Duree moyenne</p>
+              <p style={{ fontSize: 26, fontWeight: 700 }}>{pipelineStats.avg_processing_seconds ?? "--"}s</p>
+            </div>
+          </div>
+        </Card>
       ) : null}
 
       <VideoInput isLoading={processMutation.isPending} onSubmit={handleSubmit} />

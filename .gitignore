@@ -26,3 +26,6 @@ logs/
 
 # Runtime process ids and hashes
 .run/
+
+# Celery beat runtime schedule artifacts
+backend/celerybeat-schedule*

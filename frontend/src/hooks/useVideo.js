@@ -69,24 +69,61 @@ export default function useVideo(videoId = "") {
     const wsUrl = `${wsBase}/video/${videoId}/ws?token=${encodeURIComponent(token)}`;
 
     let socket;
-    try {
-      socket = new WebSocket(wsUrl);
-    } catch {
-      return undefined;
-    }
+    let reconnectTimer;
+    let reconnectAttempts = 0;
+    let closedByCleanup = false;
+    const maxReconnectAttempts = 8;
+    const terminalStatuses = new Set(["done", "error"]);
 
-    socket.onmessage = (event) => {
-      try {
-        const payload = JSON.parse(event.data);
-        if (payload && typeof payload === "object" && payload.status) {
-          setLiveStatus(payload);
-        }
-      } catch {
-        // ignore malformed frames
+    const connect = () => {
+      if (closedByCleanup) {
+        return;
       }
+      try {
+        socket = new WebSocket(wsUrl);
+      } catch {
+        return;
+      }
+
+      socket.onopen = () => {
+        reconnectAttempts = 0;
+      };
+
+      socket.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data);
+          if (payload && typeof payload === "object" && payload.status) {
+            setLiveStatus(payload);
+            if (terminalStatuses.has(payload.status)) {
+              closedByCleanup = true;
+              socket.close();
+            }
+          }
+        } catch {
+          // ignore malformed frames
+        }
+      };
+
+      socket.onclose = () => {
+        if (closedByCleanup) {
+          return;
+        }
+        if (reconnectAttempts >= maxReconnectAttempts) {
+          return;
+        }
+        const delay = Math.min(1000 * 2 ** reconnectAttempts, 10000);
+        reconnectAttempts += 1;
+        reconnectTimer = window.setTimeout(connect, delay);
+      };
     };
 
+    connect();
+
     return () => {
+      closedByCleanup = true;
+      if (reconnectTimer) {
+        window.clearTimeout(reconnectTimer);
+      }
       if (socket && socket.readyState <= 1) {
         socket.close();
       }

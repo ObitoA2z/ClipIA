@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Taches Celery operationnelles: scheduler, cleanup et performance."""
+"""Taches Celery operationnelles: scheduler, pipeline video, cleanup et performance."""
 
 from __future__ import annotations
 
@@ -10,22 +10,128 @@ from datetime import datetime, timedelta, timezone
 from random import randint
 from typing import Any
 
-from database.connection import list_records
+from database.connection import insert_record, list_records, update_record
+from services.audio_extractor import extract_audio
+from services.cutter import cut_clips
+from services.detector import detect_highlights
+from services.downloader import download_video
+from services.formatter import format_vertical
 from services.performance_tracker import list_clip_performance, record_clip_performance
 from services.publishing_service import publish_scheduled_post
 from services.scheduler_service import process_due_posts
+from services.transcriber import transcribe_audio
+from services.uploader import upload_clips
 from services.virality_scorer import enrich_highlights_with_virality
 from tasks.celery_app import celery_app
-from utils.helpers import resolve_temp_dir
+from utils.helpers import new_id, resolve_temp_dir, utc_now_iso
 
 
 def _utc_now() -> datetime:
     return datetime.now(tz=timezone.utc)
 
 
+def _set_video_state(video_id: str, status: str, progress: int, error: str | None = None) -> None:
+    update_record(
+        "videos",
+        video_id,
+        {
+            "status": status,
+            "progress_percent": progress,
+            "error_message": error,
+            "updated_at": utc_now_iso(),
+        },
+    )
+
+
+def process_video_pipeline(video_id: str, payload: dict[str, Any], user_id: str) -> dict[str, Any]:
+    """Pipeline video synchrone reutilisable (Celery + fallback local)."""
+    work_dir = ""
+    try:
+        _set_video_state(video_id, "downloading", 10)
+        download_result = download_video(str(payload.get("youtube_url") or ""), video_id)
+        work_dir = download_result.get("work_dir", "")
+
+        update_record(
+            "videos",
+            video_id,
+            {
+                "title": download_result["title"],
+                "duration_seconds": download_result["duration_seconds"],
+                "thumbnail_url": download_result["thumbnail_url"],
+                "source_mode": download_result.get("source_mode", "youtube"),
+                "updated_at": utc_now_iso(),
+            },
+        )
+
+        _set_video_state(video_id, "extracting", 22)
+        audio_path = extract_audio(download_result["video_path"])
+
+        _set_video_state(video_id, "transcribing", 35)
+        transcript = transcribe_audio(audio_path)
+
+        _set_video_state(video_id, "detecting", 55)
+        highlights = detect_highlights(
+            transcript,
+            clip_mode=str(payload.get("clip_mode") or "talking"),
+            user_prompt=str(payload.get("prompt") or "").strip(),
+            video_path=download_result["video_path"],
+            audio_path=audio_path,
+            max_clips=int(payload.get("max_clips") or 8),
+            min_duration=int(payload.get("min_duration") or 30),
+            max_duration=int(payload.get("max_duration") or 90),
+            target_platform=str(payload.get("target_platform") or "all"),
+        )
+        highlights = enrich_highlights_with_virality(
+            highlights,
+            total_duration=float(download_result.get("duration_seconds", 0) or 0),
+            target_platform=str(payload.get("target_platform") or "all"),
+            video_title=str(download_result.get("title") or ""),
+        )
+
+        _set_video_state(video_id, "cutting", 72)
+        clips = cut_clips(
+            download_result["video_path"],
+            highlights,
+            download_result.get("duration_seconds", 0),
+        )
+
+        _set_video_state(video_id, "formatting", 84)
+        vertical_clips = format_vertical(clips, layout=str(payload.get("layout") or "centered"))
+
+        _set_video_state(video_id, "uploading", 94)
+        uploaded = upload_clips(video_id, vertical_clips)
+
+        for clip_payload in uploaded:
+            clip_id = new_id()
+            clip_record = {
+                "id": clip_id,
+                "video_id": video_id,
+                "user_id": user_id,
+                **clip_payload,
+                "created_at": utc_now_iso(),
+            }
+            insert_record("clips", clip_id, clip_record)
+
+        _set_video_state(video_id, "done", 100)
+        update_record("videos", video_id, {"clips_count": len(uploaded), "updated_at": utc_now_iso()})
+        return {"video_id": video_id, "status": "done", "clips_count": len(uploaded)}
+    except Exception as exc:
+        _set_video_state(video_id, "error", 100, str(exc))
+        return {"video_id": video_id, "status": "error", "error": str(exc)}
+    finally:
+        if work_dir and os.path.isdir(work_dir):
+            shutil.rmtree(work_dir, ignore_errors=True)
+
+
 @celery_app.task(name="tasks.ping")
 def ping() -> str:
     return "pong"
+
+
+@celery_app.task(name="tasks.process_video_pipeline")
+def process_video_pipeline_task(video_id: str, payload: dict[str, Any], user_id: str) -> dict[str, Any]:
+    """Task Celery principale pour le pipeline video."""
+    return process_video_pipeline(video_id=video_id, payload=payload, user_id=user_id)
 
 
 @celery_app.task(name="tasks.publish_scheduled_posts")

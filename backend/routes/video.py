@@ -2,24 +2,19 @@
 """Routes video avec pipeline reelle (yt-dlp + ffmpeg + IA optionnelle)."""
 
 import asyncio
-import os
-import shutil
+import hashlib
+import json
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Body, Depends, HTTPException, Header, Query, Request, WebSocket, WebSocketDisconnect
 
 from database.connection import delete_record, get_record, insert_record, list_records, update_record
 from middleware.security import validate_youtube_url_strict
 from models.video import ProcessVideoRequest, VideoStatus
-from services.audio_extractor import extract_audio
 from services.audit import detect_abuse_signals, log_audit
-from services.cutter import cut_clips
-from services.detector import detect_highlights
-from services.downloader import download_video, get_video_metadata
-from services.formatter import format_vertical
-from services.transcriber import transcribe_audio
-from services.uploader import upload_clips
-from services.virality_scorer import enrich_highlights_with_virality
+from services.downloader import get_video_metadata
 from services.auth_security import validate_session_token
+from tasks.celery_app import celery_app
+from tasks.video_tasks import process_video_pipeline
 from utils.auth import require_current_user
 from utils.helpers import new_id, utc_now_iso
 from utils.rate_limit import limiter
@@ -27,6 +22,25 @@ from utils.validators import extract_youtube_id
 
 router = APIRouter(prefix="/video", tags=["video"])
 processing_tasks: dict[str, asyncio.Task] = {}
+ACTIVE_PROCESSING_STATUSES = {
+    "pending",
+    "downloading",
+    "extracting",
+    "transcribing",
+    "detecting",
+    "cutting",
+    "formatting",
+    "uploading",
+}
+
+
+def _queue_for_plan(plan: str | None) -> tuple[str, int]:
+    normalized = str(plan or "free").strip().lower()
+    if normalized == "business":
+        return "queue_pipeline_high", 9
+    if normalized == "pro":
+        return "queue_pipeline_medium", 6
+    return "queue_pipeline_low", 3
 
 
 def _video_or_404(video_id: str, user_id: str) -> dict:
@@ -43,99 +57,52 @@ def _with_video_metrics(video: dict) -> dict:
     payload = dict(video)
     payload["avg_virality_score"] = avg_score
     return payload
+def _build_idempotency_hash(
+    user_id: str,
+    payload: ProcessVideoRequest,
+    idempotency_key: str | None,
+) -> str:
+    normalized = {
+        "user_id": user_id,
+        "youtube_url": payload.youtube_url.strip(),
+        "clip_mode": payload.clip_mode,
+        "prompt": (payload.prompt or "").strip(),
+        "max_clips": payload.max_clips,
+        "min_duration": payload.min_duration,
+        "max_duration": payload.max_duration,
+        "target_platform": payload.target_platform,
+        "layout": payload.layout,
+    }
+    if idempotency_key:
+        normalized["idempotency_key"] = idempotency_key.strip()
+    payload_bytes = json.dumps(normalized, ensure_ascii=True, sort_keys=True).encode("utf-8")
+    return hashlib.sha256(payload_bytes).hexdigest()
 
 
-def _set_video_state(video_id: str, status: str, progress: int, error: str | None = None) -> None:
-    update_record(
-        "videos",
-        video_id,
-        {
-            "status": status,
-            "progress_percent": progress,
-            "error_message": error,
-            "updated_at": utc_now_iso(),
-        },
-    )
+def _find_existing_processing_video(user_id: str, idempotency_key_hash: str) -> dict | None:
+    matches = [
+        video
+        for video in list_records("videos")
+        if video.get("user_id") == user_id
+        and video.get("idempotency_key_hash") == idempotency_key_hash
+        and video.get("status") in ACTIVE_PROCESSING_STATUSES
+    ]
+    if not matches:
+        return None
+    matches.sort(key=lambda item: item.get("updated_at", ""), reverse=True)
+    return matches[0]
 
 
 async def _process_video(video_id: str, payload: ProcessVideoRequest, user_id: str) -> None:
-    """Lance la pipeline de traitement en arriere-plan."""
-    work_dir = ""
+    """Fallback local uniquement si le broker Celery est indisponible."""
     try:
-        _set_video_state(video_id, "downloading", 10)
-        download_result = await asyncio.to_thread(download_video, payload.youtube_url, video_id)
-        work_dir = download_result.get("work_dir", "")
-
-        update_record(
-            "videos",
+        await asyncio.to_thread(
+            process_video_pipeline,
             video_id,
-            {
-                "title": download_result["title"],
-                "duration_seconds": download_result["duration_seconds"],
-                "thumbnail_url": download_result["thumbnail_url"],
-                "source_mode": download_result.get("source_mode", "youtube"),
-                "updated_at": utc_now_iso(),
-            },
+            payload.model_dump(),
+            user_id,
         )
-
-        _set_video_state(video_id, "extracting", 22)
-        audio_path = await asyncio.to_thread(extract_audio, download_result["video_path"])
-        _set_video_state(video_id, "transcribing", 35)
-        transcript = await asyncio.to_thread(transcribe_audio, audio_path)
-
-        _set_video_state(video_id, "detecting", 55)
-        highlights = await asyncio.to_thread(
-            detect_highlights,
-            transcript,
-            clip_mode=payload.clip_mode,
-            user_prompt=(payload.prompt or "").strip(),
-            video_path=download_result["video_path"],
-            audio_path=audio_path,
-            max_clips=payload.max_clips,
-            min_duration=payload.min_duration,
-            max_duration=payload.max_duration,
-            target_platform=payload.target_platform,
-        )
-        highlights = await asyncio.to_thread(
-            enrich_highlights_with_virality,
-            highlights,
-            total_duration=float(download_result.get("duration_seconds", 0) or 0),
-            target_platform=payload.target_platform,
-            video_title=str(download_result.get("title") or ""),
-        )
-
-        _set_video_state(video_id, "cutting", 72)
-        clips = await asyncio.to_thread(
-            cut_clips,
-            download_result["video_path"],
-            highlights,
-            download_result.get("duration_seconds", 0),
-        )
-
-        _set_video_state(video_id, "formatting", 84)
-        vertical_clips = await asyncio.to_thread(format_vertical, clips, layout=payload.layout)
-
-        _set_video_state(video_id, "uploading", 94)
-        uploaded = await asyncio.to_thread(upload_clips, video_id, vertical_clips)
-
-        for payload in uploaded:
-            clip_id = new_id()
-            clip_record = {
-                "id": clip_id,
-                "video_id": video_id,
-                "user_id": user_id,
-                **payload,
-                "created_at": utc_now_iso(),
-            }
-            insert_record("clips", clip_id, clip_record)
-
-        _set_video_state(video_id, "done", 100)
-        update_record("videos", video_id, {"clips_count": len(uploaded), "updated_at": utc_now_iso()})
-    except Exception as exc:
-        _set_video_state(video_id, "error", 100, str(exc))
     finally:
-        if work_dir and os.path.isdir(work_dir):
-            shutil.rmtree(work_dir, ignore_errors=True)
         processing_tasks.pop(video_id, None)
 
 
@@ -145,6 +112,7 @@ async def process_video(
     request: Request,
     payload: ProcessVideoRequest = Body(...),
     current_user: dict = Depends(require_current_user),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> VideoStatus:
     """Valide l'URL, recupere la metadata, cree la video et lance la pipeline."""
     if not validate_youtube_url_strict(payload.youtube_url):
@@ -162,6 +130,11 @@ async def process_video(
             "uploader": "",
         }
 
+    idempotency_key_hash = _build_idempotency_hash(current_user["id"], payload, idempotency_key)
+    existing_video = _find_existing_processing_video(current_user["id"], idempotency_key_hash)
+    if existing_video:
+        return VideoStatus(**_with_video_metrics(existing_video))
+
     video_id = new_id()
     youtube_id = extract_youtube_id(payload.youtube_url)
     now = utc_now_iso()
@@ -177,6 +150,7 @@ async def process_video(
         "max_duration": payload.max_duration,
         "target_platform": payload.target_platform,
         "layout": payload.layout,
+        "idempotency_key_hash": idempotency_key_hash,
         "youtube_id": youtube_id,
         "title": metadata.get("title") or "En preparation",
         "duration_seconds": int(metadata.get("duration_seconds") or 0),
@@ -208,7 +182,36 @@ async def process_video(
             metadata=abuse,
         )
 
-    processing_tasks[video_id] = asyncio.create_task(_process_video(video_id, payload, current_user["id"]))
+    try:
+        queue_name, queue_priority = _queue_for_plan(current_user.get("plan"))
+        task = celery_app.send_task(
+            "tasks.process_video_pipeline",
+            args=[video_id, payload.model_dump(), current_user["id"]],
+            queue=queue_name,
+            priority=queue_priority,
+        )
+        update_record(
+            "videos",
+            video_id,
+            {
+                "worker_mode": "celery",
+                "worker_job_id": task.id,
+                "worker_queue": queue_name,
+                "worker_priority": queue_priority,
+                "updated_at": utc_now_iso(),
+            },
+        )
+    except Exception as exc:
+        update_record(
+            "videos",
+            video_id,
+            {
+                "worker_mode": "local_fallback",
+                "worker_error": str(exc),
+                "updated_at": utc_now_iso(),
+            },
+        )
+        processing_tasks[video_id] = asyncio.create_task(_process_video(video_id, payload, current_user["id"]))
     return VideoStatus(**record)
 
 

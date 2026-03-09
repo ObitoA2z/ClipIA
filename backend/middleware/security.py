@@ -15,12 +15,9 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse, Response
+from utils.validators import is_valid_youtube_url
 
 MAX_JSON_BODY_BYTES = 1 * 1024 * 1024  # 1MB
-STRICT_YOUTUBE_REGEX = re.compile(
-    r"^(https?://)(www\.)?(youtube\.com/watch\?v=[A-Za-z0-9_-]{6,}|youtu\.be/[A-Za-z0-9_-]{6,})(&.*)?$",
-    re.IGNORECASE,
-)
 
 
 class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
@@ -70,7 +67,7 @@ def sanitize_text(value: str) -> str:
 
 def validate_youtube_url_strict(url: str) -> bool:
     """Validation YouTube stricte pour les endpoints sensibles."""
-    return bool(STRICT_YOUTUBE_REGEX.match((url or "").strip()))
+    return is_valid_youtube_url(url)
 
 
 def _build_allowed_origins() -> list[str]:

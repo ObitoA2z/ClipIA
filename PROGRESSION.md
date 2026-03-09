@@ -270,3 +270,23 @@ OK frontend build -- npm run build succes -- 13:14
 ✅ frontend/playwright.config.js + frontend/tests/e2e/smoke.spec.js + package.json — base E2E Playwright ajoutee — 13:32
 ✅ frontend/src/pages/Scheduler.jsx — UX scheduler fiabilisee (cancel/retry/delete + statut) — 13:32
 ✅ frontend/src/pages/Dashboard.jsx — checklist onboarding utilisateur integree — 13:32
+
+✅ backend\routes\video.py — Ajout idempotence /video/process (Idempotency-Key + hash payload/user + reutilisation job actif) — 14:04
+✅ backend\tests\test_all.py — Test idempotence ajoute; suite backend 33/33 OK — 14:04
+✅ frontend\src\hooks\useVideo.js — Reconnexion WebSocket auto (backoff exponentiel + arret sur statut terminal) — 14:04
+✅ frontend\dist — Build frontend valide apres correction WebSocket — 14:04
+✅ .gitignore — Ignore des artefacts celerybeat-schedule* pour garder le repo propre — 14:08
+✅ backend\routes\stats.py — Nouvel endpoint /stats/pipeline (breakdown statuts, success rate, duree moyenne) — 14:08
+✅ backend\tests\test_all.py — Test /stats/pipeline ajoute; suite backend 34/34 OK — 14:08
+✅ frontend\src\services\videoService.js — Ajout getPipelineStats() branche sur /stats/pipeline — 14:14
+✅ frontend\src\pages\Dashboard.jsx — Carte 'Etat du pipeline' (actifs/succes/done/duree moyenne) avec refresh 5s — 14:14
+✅ frontend\dist — Build frontend revalide apres integration stats pipeline — 14:14
+✅ backend\tasks\video_tasks.py — Ajout task Celery tasks.process_video_pipeline + pipeline synchrone reutilisable — 14:20
+✅ backend\routes\video.py — /video/process passe par enqueue Celery (fallback local si broker indisponible) + priorite par plan — 14:20
+✅ backend\tasks\celery_app.py — Queues dediees pipeline/publish/maintenance + routing tasks — 14:20
+✅ backend\tests\test_all.py — Suite backend revalidee 34/34 apres refacto Celery — 14:20
+✅ Exploitation locale — Redemarrage workers Celery propres (task process_video_pipeline chargee) + verification end-to-end pipeline en progression — 15:31
+✅ backend\utils\validators.py — Validation/extraction YouTube robuste (watch/shorts/embed/live/youtu.be + m.youtube + params) — 15:50
+✅ backend\middleware\security.py — validate_youtube_url_strict branche sur validateur robuste unique — 15:50
+✅ backend\tests\test_all.py — Nouveaux tests URLs YouTube reels/shorts/mobile; suite 36/36 OK — 15:50
+✅ Exploitation locale — Backend relance et verification: URLs YouTube auparavant refusees maintenant acceptees (HTTP 200) — 15:50

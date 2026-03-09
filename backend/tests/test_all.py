@@ -34,6 +34,16 @@ class TestURLValidation:
 
         assert validate_youtube_url("https://www.youtube.com/watch?v=abc123&t=30s") is True
 
+    def test_valid_youtube_shorts_url(self):
+        from utils.validators import validate_youtube_url
+
+        assert validate_youtube_url("https://www.youtube.com/shorts/dQw4w9WgXcQ?si=abc123") is True
+
+    def test_valid_youtube_mobile_url_without_scheme(self):
+        from utils.validators import validate_youtube_url
+
+        assert validate_youtube_url("m.youtube.com/watch?v=dQw4w9WgXcQ") is True
+
     def test_invalid_url_vimeo(self):
         from utils.validators import validate_youtube_url
 
@@ -168,6 +178,31 @@ class TestVideo:
         )
         assert response.status_code in [200, 201]
         assert "id" in response.json()
+
+    def test_process_idempotent_same_payload_returns_same_video(self):
+        email = f"idem_{new_id()[:8]}@test.com"
+        reg = client.post(
+            "/auth/register",
+            json={"email": email, "password": "Pass123!", "full_name": "Idem"},
+        )
+        token = reg.json().get("access_token")
+        headers = {"Authorization": f"Bearer {token}", "Idempotency-Key": "same-request-1"}
+        payload = {
+            "youtube_url": "https://youtube.com/watch?v=dQw4w9WgXcQ",
+            "clip_mode": "talking",
+            "max_clips": 4,
+            "min_duration": 20,
+            "max_duration": 45,
+            "target_platform": "shorts",
+            "layout": "centered",
+        }
+
+        first = client.post("/video/process", json=payload, headers=headers)
+        second = client.post("/video/process", json=payload, headers=headers)
+
+        assert first.status_code in [200, 201]
+        assert second.status_code in [200, 201]
+        assert first.json()["id"] == second.json()["id"]
 
     def test_user_cannot_see_other_clips(self):
         email1 = f"user1_{new_id()[:8]}@test.com"
@@ -355,6 +390,73 @@ class TestRoutesNew:
         data = response.json()
         for key in ["clips_today", "total_creators", "clips_total", "videos_total", "updated_at"]:
             assert key in data
+
+    def test_pipeline_stats_keys(self):
+        email = f"pipe_{new_id()[:8]}@test.com"
+        reg = client.post(
+            "/auth/register",
+            json={"email": email, "password": "Pass123!", "full_name": "Pipe"},
+        )
+        token = reg.json().get("access_token")
+        me = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"}).json()
+        user_id = me["id"]
+
+        now = utc_now_iso()
+        done_video_id = new_id()
+        insert_record(
+            "videos",
+            done_video_id,
+            {
+                "id": done_video_id,
+                "user_id": user_id,
+                "youtube_url": "https://youtube.com/watch?v=p1",
+                "youtube_id": "p1",
+                "title": "Done",
+                "duration_seconds": 100,
+                "thumbnail_url": "",
+                "status": "done",
+                "progress_percent": 100,
+                "clips_count": 2,
+                "created_at": now,
+                "updated_at": now,
+            },
+        )
+        error_video_id = new_id()
+        insert_record(
+            "videos",
+            error_video_id,
+            {
+                "id": error_video_id,
+                "user_id": user_id,
+                "youtube_url": "https://youtube.com/watch?v=p2",
+                "youtube_id": "p2",
+                "title": "Error",
+                "duration_seconds": 80,
+                "thumbnail_url": "",
+                "status": "error",
+                "progress_percent": 100,
+                "clips_count": 0,
+                "created_at": now,
+                "updated_at": now,
+            },
+        )
+
+        response = client.get("/stats/pipeline", headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 200
+        data = response.json()
+        for key in [
+            "total_videos",
+            "processing_active",
+            "done_count",
+            "error_count",
+            "success_rate_percent",
+            "avg_processing_seconds",
+            "status_breakdown",
+            "updated_at",
+        ]:
+            assert key in data
+        assert data["done_count"] >= 1
+        assert data["error_count"] >= 1
 
     def test_scheduler_event_created(self):
         email = f"sched_{new_id()[:8]}@test.com"

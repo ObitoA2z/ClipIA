@@ -7,9 +7,10 @@ import json
 from datetime import datetime, timedelta, timezone
 
 import redis as redis_client
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from database.connection import list_records
+from utils.auth import require_current_user
 
 router = APIRouter(prefix="/stats", tags=["stats"])
 
@@ -80,6 +81,18 @@ def _compute_public_stats() -> dict:
     }
 
 
+def _parse_iso(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    raw = str(value).strip()
+    if not raw:
+        return None
+    try:
+        return datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
 @router.get("/public")
 def public_stats() -> dict:
     expires_at = _LOCAL_CACHE.get("expires_at")
@@ -99,3 +112,53 @@ def public_stats() -> dict:
     _LOCAL_CACHE["expires_at"] = now + timedelta(minutes=5)
     _save_redis(computed)
     return computed
+
+
+@router.get("/pipeline")
+def pipeline_stats(current_user: dict = Depends(require_current_user)) -> dict:
+    videos = [video for video in list_records("videos") if video.get("user_id") == current_user["id"]]
+    status_breakdown: dict[str, int] = {}
+    active_statuses = {
+        "pending",
+        "downloading",
+        "extracting",
+        "transcribing",
+        "detecting",
+        "cutting",
+        "formatting",
+        "uploading",
+    }
+
+    processing_active = 0
+    done_count = 0
+    error_count = 0
+    durations_seconds: list[float] = []
+
+    for video in videos:
+        status = str(video.get("status") or "unknown")
+        status_breakdown[status] = status_breakdown.get(status, 0) + 1
+        if status in active_statuses:
+            processing_active += 1
+        if status == "done":
+            done_count += 1
+            started = _parse_iso(video.get("created_at"))
+            ended = _parse_iso(video.get("updated_at"))
+            if started and ended and ended >= started:
+                durations_seconds.append((ended - started).total_seconds())
+        if status == "error":
+            error_count += 1
+
+    completed = done_count + error_count
+    success_rate = round((done_count / completed) * 100, 2) if completed else None
+    avg_processing_seconds = round(sum(durations_seconds) / len(durations_seconds), 2) if durations_seconds else None
+
+    return {
+        "total_videos": len(videos),
+        "processing_active": processing_active,
+        "done_count": done_count,
+        "error_count": error_count,
+        "success_rate_percent": success_rate,
+        "avg_processing_seconds": avg_processing_seconds,
+        "status_breakdown": status_breakdown,
+        "updated_at": _utc_now().isoformat(),
+    }
