@@ -85,3 +85,15 @@
 ✅ RAPPORT_AUDIT.md — Section déploiement + test pipeline réel ajoutée (statuts cloud mis à jour) — 13:57
 ✅ backend\database\migrations\005_supabase_full_schema.sql — SQL complet Supabase (tables + index + triggers updated_at) ajouté — 13:57
 ✅ backend\.env.example — Variables de déploiement ajoutées (STRIPE_PRICE_PRO/BUSINESS, ENVIRONMENT) — 13:58
+✅ backend\.env — JWT_SECRET généré et variables prod initiales appliquées (ENVIRONMENT, TEMP_DIR, FRONTEND_URL) — 14:33
+✅ backend\.env — GROQ_API_KEY configurée et encodage .env corrigé (ASCII sans BOM) — 14:44
+✅ backend\tests — Test connectivité Groq validé (models.list OK) — 14:44
+✅ backend\.env — GEMINI_API_KEY configurée — 14:51
+✅ backend\tests — Clé Gemini validée via list_models (API accessible) — 14:51
+⚠️ backend\tests — generate_content Gemini bloqué par quota Google (429 ResourceExhausted) — 14:51
+✅ backend\.env — SUPABASE_URL et SUPABASE_KEY renseignées (valeurs masquées) — 15:04
+⚠️ backend\tests — Test Supabase échoué: clé API invalide (401 Invalid API key) — 15:04
+✅ backend\.env — SUPABASE_KEY corrigée avec clé projet secret (service key) — 15:15
+✅ backend\tests — Test connectivité Supabase validé (select users OK) — 15:15
+✅ backend\.env — STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PRICE_PRO et STRIPE_PRICE_BUSINESS configurés — 15:34
+✅ backend\tests — Test Stripe validé (Balance.retrieve OK) — 15:34
